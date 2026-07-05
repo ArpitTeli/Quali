@@ -50,6 +50,7 @@ function App() {
       setStats(data.stats)
       setIsComplete(true)
       setBatchComplete(true)
+      setHasUnprocessed(false)
     }
 
     window.electronAPI.onBatchCreated(onBatchCreated)
@@ -78,6 +79,11 @@ function App() {
   const handleNextBatch = useCallback(async () => {
     if (!window.electronAPI) return
     await window.electronAPI.nextBatch()
+  }, [])
+
+  const handleGoHome = useCallback(async () => {
+    if (!window.electronAPI) return
+    await window.electronAPI.goHome()
   }, [])
 
   const taggedCount = batchRows.filter(r => r.tag).length
@@ -124,6 +130,11 @@ function App() {
                   onClick={() => handleTag(row.rowId, 'red')}
                   title="Red"
                 />
+                <button
+                  className={`tag-btn blue ${row.tag === 'blue' ? 'active' : ''}`}
+                  onClick={() => handleTag(row.rowId, 'blue')}
+                  title="Push Up"
+                />
               </div>
             </div>
           ))
@@ -146,6 +157,9 @@ function App() {
           disabled={!allTagged || !hasUnprocessed}
         >
           Next Batch
+        </button>
+        <button className="btn-home" onClick={handleGoHome}>
+          Home
         </button>
       </div>
     </div>

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, screen, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, BrowserView, screen, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const XLSX = require('xlsx');
@@ -49,7 +49,8 @@ const COLUMN_ALIASES = {
 const STATUS_COLORS = {
   green: 'C6EFCE',
   yellow: 'FFEB9C',
-  red: 'FFC7CE'
+  red: 'FFC7CE',
+  blue: 'B4D8E7'
 };
 
 // ── Column Detection ─────────────────────────────────────────────────────────
@@ -110,8 +111,13 @@ class AppState {
     this.processedCount = 0;
     this.totalCount = 0;
     this.columnMapping = {};
+    this.localMasterPath = path.join(app.getPath('documents'), 'leadworker_master.xlsx');
     this.recoveryPath = path.join(app.getPath('userData'), 'recovery.json');
+    this.loadRecovery();
   }
+
+  loadConfig() { /* no-op, kept for compat */ }
+  saveConfig() { /* no-op, kept for compat */ }
 
   loadFromExcel(filePath, sheetName, data, columnMapping) {
     this.filePath = filePath;
@@ -188,7 +194,48 @@ class AppState {
     row.status = ROW_STATUS.TAGGED;
     this.processedCount = this.rows.filter(r => r.status === ROW_STATUS.TAGGED).length;
     this.autosave();
+    this.updateLocalMaster(row, tag);
     return true;
+  }
+
+  updateLocalMaster(row, tag) {
+    try {
+      const masterFile = this.localMasterPath;
+      let existingRows = [];
+      if (fs.existsSync(masterFile)) {
+        try {
+          const wb = XLSX.readFile(masterFile);
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          existingRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        } catch (e) { existingRows = []; }
+      }
+      const key = `${(row.mappedData?.name || '').toLowerCase()}|${(row.mappedData?.website || '').toLowerCase()}`;
+      const existing = existingRows.find(r => {
+        const rKey = `${(r.name || '').toLowerCase()}|${(r.website || '').toLowerCase()}`;
+        return rKey === key;
+      });
+      const statusMap = { green: 'Green', yellow: 'Yellow', red: 'Red', blue: 'Blue' };
+      if (existing) {
+        existing['Lead Status'] = statusMap[tag] || '';
+      } else {
+        existingRows.push({
+          query: row.mappedData?.query || '',
+          name: row.mappedData?.name || '',
+          website: row.mappedData?.website || '',
+          company_phone: row.mappedData?.company_phone || '',
+          email: row.mappedData?.email || '',
+          'Lead Status': statusMap[tag] || ''
+        });
+      }
+      const headers = ['query', 'name', 'website', 'company_phone', 'email', 'Lead Status'];
+      const wsData = [headers, ...existingRows.map(r => headers.map(h => r[h] || ''))];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Master Leads');
+      fs.writeFileSync(masterFile, XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' }));
+    } catch (e) {
+      console.error('Update local master failed:', e);
+    }
   }
 
   untagRow(rowId) {
@@ -262,6 +309,13 @@ class AppState {
 
   getAllTaggedRows() {
     return this.rows.filter(r => r.status === ROW_STATUS.TAGGED).map(row => ({
+      mappedData: row.mappedData || { name: row.searchValue || '', query: '', website: '', company_phone: '', email: '' },
+      tag: row.tag
+    }));
+  }
+
+  getAllRows() {
+    return this.rows.map(row => ({
       mappedData: row.mappedData || { name: row.searchValue || '', query: '', website: '', company_phone: '', email: '' },
       tag: row.tag
     }));
@@ -427,6 +481,79 @@ function createMiniPlayerWindow() {
     miniPlayerWindow.loadFile(getMiniPlayerPath());
   }
   miniPlayerWindow.on('closed', () => { miniPlayerWindow = null; });
+}
+
+function performExport(exportPath) {
+  try {
+    let existingRows = [];
+
+    if (fs.existsSync(exportPath)) {
+      try {
+        const existingWb = XLSX.readFile(exportPath);
+        const existingSheet = existingWb.Sheets[existingWb.SheetNames[0]];
+        existingRows = XLSX.utils.sheet_to_json(existingSheet, { defval: '' });
+      } catch (e) {
+        existingRows = [];
+      }
+    }
+
+    const newTagged = state.getAllRows();
+    const lookup = new Map();
+
+    existingRows.forEach(row => {
+      const key = `${(row.name || '').toLowerCase()}|${(row.website || '').toLowerCase()}`;
+      lookup.set(key, { ...row });
+    });
+
+    newTagged.forEach(({ mappedData, tag }) => {
+      const key = `${(mappedData.name || '').toLowerCase()}|${(mappedData.website || '').toLowerCase()}`;
+      const existing = lookup.get(key);
+      if (existing) {
+        if (tag) {
+          existing['Lead Status'] = tag.charAt(0).toUpperCase() + tag.slice(1);
+          existing._tag = tag;
+        }
+      } else {
+        lookup.set(key, {
+          ...mappedData,
+          'Lead Status': tag ? tag.charAt(0).toUpperCase() + tag.slice(1) : '',
+          _tag: tag
+        });
+      }
+    });
+
+    const outputHeaders = [...STANDARD_COLUMNS, 'Lead Status'];
+    const wsData = [outputHeaders];
+    const styles = [];
+
+    lookup.forEach((row) => {
+      const rowData = outputHeaders.map(h => row[h] !== undefined ? row[h] : '');
+      wsData.push(rowData);
+      const tag = (row._tag || '').toLowerCase();
+      if (tag && STATUS_COLORS[tag]) {
+        styles.push({ row: wsData.length - 1, color: STATUS_COLORS[tag] });
+      }
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    styles.forEach(({ row, color }) => {
+      for (let col = 0; col < outputHeaders.length; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
+        if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
+        ws[cellRef].s = {
+          fill: { patternType: 'solid', fgColor: { rgb: color } }
+        };
+      }
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reviewed Leads');
+    fs.writeFileSync(exportPath, XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' }));
+
+    return { success: true, filePath: exportPath };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 // ── IPC Setup ────────────────────────────────────────────────────────────────
@@ -596,7 +723,8 @@ function setupIPC(win) {
     batchComplete: state.isCurrentBatchComplete(),
     batchSize: state.batchSize,
     hasUnprocessed: state.hasUnprocessedRows(),
-    columnMapping: state.columnMapping
+    columnMapping: state.columnMapping,
+    localMasterPath: state.localMasterPath
   }));
 
   ipcMain.handle(IPC_CHANNELS.BATCH_SIZE_UPDATE, (event, { batchSize }) => {
@@ -606,6 +734,30 @@ function setupIPC(win) {
 
   ipcMain.handle('update:install', () => {
     autoUpdater.quitAndInstall(false, true);
+  });
+
+  ipcMain.handle('go-home', () => {
+    destroyAllBrowserViews();
+    if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
+      miniPlayerWindow.close();
+    }
+    sendToRenderer('navigate-home');
+    return { success: true };
+  });
+
+  ipcMain.handle('open-local-master', () => {
+    const masterPath = state.localMasterPath;
+    if (fs.existsSync(masterPath)) {
+      shell.showItemInFolder(masterPath);
+    } else {
+      shell.showItemInFolder(path.dirname(masterPath));
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('open-shared-file', () => {
+    shell.openExternal('https://docs.google.com/spreadsheets/d/1LWsb7dfw5vQ3DZcLgmN523ALoys9hqYfmft6v-bA9kU/edit?usp=sharing');
+    return { success: true };
   });
 
   ipcMain.handle(IPC_CHANNELS.EXPORT_FILE, async () => {
@@ -619,78 +771,7 @@ function setupIPC(win) {
       filters: [{ name: 'Excel Files', extensions: ['xlsx'] }]
     });
     if (result.canceled || !result.filePath) return { canceled: true };
-
-    try {
-      const exportPath = result.filePath;
-      let existingRows = [];
-
-      if (fs.existsSync(exportPath)) {
-        try {
-          const existingWb = XLSX.readFile(exportPath);
-          const existingSheet = existingWb.Sheets[existingWb.SheetNames[0]];
-          existingRows = XLSX.utils.sheet_to_json(existingSheet, { defval: '' });
-        } catch (e) {
-          existingRows = [];
-        }
-      }
-
-      const newTagged = state.getAllTaggedRows();
-      const lookup = new Map();
-
-      existingRows.forEach(row => {
-        const key = `${(row.name || '').toLowerCase()}|${(row.website || '').toLowerCase()}`;
-        lookup.set(key, { ...row });
-      });
-
-      newTagged.forEach(({ mappedData, tag }) => {
-        const key = `${(mappedData.name || '').toLowerCase()}|${(mappedData.website || '').toLowerCase()}`;
-        const existing = lookup.get(key);
-        if (existing) {
-          if (tag) {
-            existing['Lead Status'] = tag.charAt(0).toUpperCase() + tag.slice(1);
-            existing._tag = tag;
-          }
-        } else {
-          lookup.set(key, {
-            ...mappedData,
-            'Lead Status': tag ? tag.charAt(0).toUpperCase() + tag.slice(1) : '',
-            _tag: tag
-          });
-        }
-      });
-
-      const outputHeaders = [...STANDARD_COLUMNS, 'Lead Status'];
-      const wsData = [outputHeaders];
-      const styles = [];
-
-      lookup.forEach((row) => {
-        const rowData = outputHeaders.map(h => row[h] !== undefined ? row[h] : '');
-        wsData.push(rowData);
-        const tag = (row._tag || '').toLowerCase();
-        if (tag && STATUS_COLORS[tag]) {
-          styles.push({ row: wsData.length - 1, color: STATUS_COLORS[tag] });
-        }
-      });
-
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-      styles.forEach(({ row, color }) => {
-        for (let col = 0; col < outputHeaders.length; col++) {
-          const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
-          if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
-          ws[cellRef].s = {
-            fill: { patternType: 'solid', fgColor: { rgb: color } }
-          };
-        }
-      });
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Reviewed Leads');
-      fs.writeFileSync(exportPath, XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' }));
-
-      return { success: true, filePath: exportPath };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
+    return performExport(result.filePath);
   });
 
   ipcMain.handle(IPC_CHANNELS.RESUME_SESSION, () => state.loadRecovery());
