@@ -20,21 +20,25 @@ function App() {
   const [updateStatus, setUpdateStatus] = useState(null)
   const [updateVersion, setUpdateVersion] = useState(null)
   const [updateProgress, setUpdateProgress] = useState(0)
+  const [localMasterPath, setLocalMasterPath] = useState('')
 
   useEffect(() => {
     const checkRecovery = async () => {
       if (!window.electronAPI) return
       const state = await window.electronAPI.getState()
-      if (state && state.stats && state.stats.total > 0) {
-        setStats(state.stats)
-        setBatchRows(state.batchRows || [])
-        setBatchSize(state.batchSize || 20)
-        setIsComplete(state.isComplete)
-        setBatchComplete(state.batchComplete)
-        setColumnMapping(state.columnMapping || {})
-        if (state.batchRows && state.batchRows.length > 0) {
-          setView('batch')
-          setActiveTab(state.batchRows[0]?.rowId)
+      if (state) {
+        if (state.localMasterPath) setLocalMasterPath(state.localMasterPath)
+        if (state.stats && state.stats.total > 0) {
+          setStats(state.stats)
+          setBatchRows(state.batchRows || [])
+          setBatchSize(state.batchSize || 20)
+          setIsComplete(state.isComplete)
+          setBatchComplete(state.batchComplete)
+          setColumnMapping(state.columnMapping || {})
+          if (state.batchRows && state.batchRows.length > 0) {
+            setView('batch')
+            setActiveTab(state.batchRows[0]?.rowId)
+          }
         }
       }
     }
@@ -64,13 +68,15 @@ function App() {
     }
 
     const onTabClosed = (data) => {
-      setBatchRows(prev => prev.filter(row => row.rowId !== data.rowId))
-      setActiveTab(prev => {
-        if (prev === data.rowId) {
-          const remaining = batchRows.filter(r => r.rowId !== data.rowId)
-          return remaining.length > 0 ? remaining[0].rowId : null
-        }
-        return prev
+      setBatchRows(prev => {
+        const remaining = prev.filter(row => row.rowId !== data.rowId)
+        setActiveTab(prevTab => {
+          if (prevTab === data.rowId) {
+            return remaining.length > 0 ? remaining[0].rowId : null
+          }
+          return prevTab
+        })
+        return remaining
       })
     }
 
@@ -84,11 +90,25 @@ function App() {
       setActiveTab(data.rowId)
     }
 
+    const onNavigateHome = () => {
+      setView('landing')
+      setExcelData(null)
+      setColumnMapping({})
+      setBatchSize(20)
+      setStats({ total: 0, processed: 0, remaining: 0, inBatch: 0 })
+      setBatchRows([])
+      setActiveTab(null)
+      setIsComplete(false)
+      setBatchComplete(false)
+      setIsAdditional(false)
+    }
+
     window.electronAPI.onBatchCreated(onBatchCreated)
     window.electronAPI.onRowTagged(onTagged)
     window.electronAPI.onTabClosed(onTabClosed)
     window.electronAPI.onBatchCompleted(onBatchCompleted)
     window.electronAPI.onSwitchView(onSwitchView)
+    window.electronAPI.onNavigateHome(onNavigateHome)
 
     return () => {
       window.electronAPI.removeAllListeners('batch:created')
@@ -96,6 +116,7 @@ function App() {
       window.electronAPI.removeAllListeners('tab:closed')
       window.electronAPI.removeAllListeners('batch:completed')
       window.electronAPI.removeAllListeners('ui:switch-view')
+      window.electronAPI.removeAllListeners('navigate-home')
     }
   }, [batchRows])
 
@@ -171,16 +192,14 @@ function App() {
     }
   }, [])
 
-  const handleExport = useCallback(async () => {
+  const handleOpenLocalMaster = useCallback(async () => {
     if (!window.electronAPI) return
-    const result = await window.electronAPI.exportFile()
-    if (result.success) {
-      addToast(`Exported successfully to: ${result.filePath}`, 'success')
-    } else if (result.canceled) {
-      return
-    } else {
-      addToast(`Export failed: ${result.error}`, 'error')
-    }
+    await window.electronAPI.openLocalMaster()
+  }, [])
+
+  const handleOpenSharedFile = useCallback(async () => {
+    if (!window.electronAPI) return
+    await window.electronAPI.openSharedFile()
   }, [])
 
   const handleTabClick = useCallback((rowId) => {
@@ -237,6 +256,24 @@ function App() {
         </header>
         {renderUpdateBanner()}
         <main className="app-main">
+          <div className="landing-cards">
+            <div className="master-card">
+              <div className="master-card-icon">📊</div>
+              <div className="master-card-info">
+                <h3>Local Master Excel</h3>
+                <p className="master-card-path">{localMasterPath || 'No file yet — start reviewing to create one'}</p>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={handleOpenLocalMaster}>Open</button>
+            </div>
+            <div className="master-card">
+              <div className="master-card-icon">🌐</div>
+              <div className="master-card-info">
+                <h3>Shared Master Sheet</h3>
+                <p className="master-card-path">Google Drive — all users</p>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={handleOpenSharedFile}>Open</button>
+            </div>
+          </div>
           <FilePicker onFileLoad={handleFileLoad} />
         </main>
         <ToastContainer />
@@ -303,8 +340,7 @@ function App() {
               <h2>All Leads Reviewed!</h2>
               <p>You have reviewed all {stats.total} leads.</p>
               <div className="completion-actions">
-                <button className="btn btn-primary" onClick={handleExport}>Export to Excel</button>
-                <button className="btn btn-secondary" onClick={handleAddFile}>Add Another File</button>
+                <button className="btn btn-primary" onClick={handleAddFile}>Add Another File</button>
                 <button className="btn btn-secondary" onClick={handleStartNewSession}>Start New Session</button>
               </div>
             </div>

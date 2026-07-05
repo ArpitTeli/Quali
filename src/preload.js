@@ -46,6 +46,10 @@ const electronAPI = {
 
   installUpdate: () => ipcRenderer.invoke('update:install'),
 
+  goHome: () => ipcRenderer.invoke('go-home'),
+  openLocalMaster: () => ipcRenderer.invoke('open-local-master'),
+  openSharedFile: () => ipcRenderer.invoke('open-shared-file'),
+
   onBatchCreated: (callback) => {
     ipcRenderer.on(IPC_CHANNELS.BATCH_CREATED, (event, data) => callback(data));
   },
@@ -60,6 +64,9 @@ const electronAPI = {
   },
   onSwitchView: (callback) => {
     ipcRenderer.on(IPC_CHANNELS.UI_SWITCH_VIEW, (event, data) => callback(data));
+  },
+  onNavigateHome: (callback) => {
+    ipcRenderer.on('navigate-home', () => callback());
   },
   onUpdateChecking: (callback) => {
     ipcRenderer.on('update:checking', () => callback());
