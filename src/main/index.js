@@ -114,6 +114,8 @@ class AppState {
     this.localMasterPath = path.join(app.getPath('documents'), 'quali_master.xlsx');
     this.scriptUrl = 'https://script.google.com/macros/s/AKfycbzY-bRTbKDuLlbUwldHs9LoC9evce_5psKNTPt41mK6VXL-2QrOSjk_IkVHPh5v3fnS/exec';
     this.pushedByName = '';
+    this.pushCounts = {};
+    this.activities = [];
     this.recoveryPath = path.join(app.getPath('userData'), 'recovery.json');
     this.configPath = path.join(app.getPath('userData'), 'config.json');
     this.loadConfig();
@@ -126,6 +128,8 @@ class AppState {
         const cfg = JSON.parse(fs.readFileSync(this.configPath, 'utf-8'));
         this.scriptUrl = cfg.scriptUrl || 'https://script.google.com/macros/s/AKfycbzY-bRTbKDuLlbUwldHs9LoC9evce_5psKNTPt41mK6VXL-2QrOSjk_IkVHPh5v3fnS/exec';
         this.pushedByName = cfg.pushedByName || '';
+        this.pushCounts = cfg.pushCounts || {};
+        this.activities = cfg.activities || [];
       }
     } catch (e) { /* ignore */ }
   }
@@ -134,7 +138,9 @@ class AppState {
     try {
       fs.writeFileSync(this.configPath, JSON.stringify({
         scriptUrl: this.scriptUrl,
-        pushedByName: this.pushedByName || ''
+        pushedByName: this.pushedByName || '',
+        pushCounts: this.pushCounts || {},
+        activities: this.activities || []
       }, null, 2));
     } catch (e) { console.error('Config save failed:', e); }
   }
@@ -622,6 +628,11 @@ function setupIPC(win) {
       const excelData = readExcel(filePath);
       const firstSheet = excelData.sheets[excelData.defaultSheet];
       const columnMapping = detectColumns(firstSheet.headers);
+      const activity = { type: 'file', title: `Loaded "${path.basename(filePath)}"`, desc: `${firstSheet.data.length} leads found`, time: new Date().toISOString() };
+      if (!state.activities) state.activities = [];
+      state.activities.unshift(activity);
+      if (state.activities.length > 50) state.activities = state.activities.slice(0, 50);
+      state.saveConfig();
       return {
         canceled: false,
         data: excelData,
@@ -649,6 +660,11 @@ function setupIPC(win) {
       const excelData = readExcel(filePath);
       const firstSheet = excelData.sheets[excelData.defaultSheet];
       const columnMapping = detectColumns(firstSheet.headers);
+      const activity = { type: 'file', title: `Added "${path.basename(filePath)}"`, desc: `${firstSheet.data.length} leads loaded`, time: new Date().toISOString() };
+      if (!state.activities) state.activities = [];
+      state.activities.unshift(activity);
+      if (state.activities.length > 50) state.activities = state.activities.slice(0, 50);
+      state.saveConfig();
       return {
         canceled: false,
         data: excelData,
@@ -715,6 +731,14 @@ function setupIPC(win) {
   ipcMain.handle(IPC_CHANNELS.ROW_TAG, async (event, { rowId, tag }) => {
     const success = await state.tagRow(rowId, tag);
     if (success) {
+      const row = state.rows.find(r => r.rowId === rowId);
+      const tagName = row ? (row.mappedData?.name || row.searchValue || 'lead') : 'lead';
+      const tagLabel = tag === 'green' ? 'Good' : tag === 'yellow' ? 'Maybe' : tag === 'red' ? 'Bad' : tag;
+      const activity = { type: 'tag', title: `Tagged "${tagName}" as ${tagLabel}`, desc: 'Lead status updated', time: new Date().toISOString() };
+      if (!state.activities) state.activities = [];
+      state.activities.unshift(activity);
+      if (state.activities.length > 50) state.activities = state.activities.slice(0, 50);
+      state.saveConfig();
       sendToRenderer(IPC_CHANNELS.ROW_TAGGED, {
         rowId, tag,
         stats: state.getStats(),
@@ -852,6 +876,11 @@ function setupIPC(win) {
         const rKey = `${(r.name || '').toLowerCase()}|${(r.website || '').toLowerCase()}`;
         return rKey !== key;
       });
+      const activity = { type: 'discard', title: `Discarded "${name || 'lead'}"`, desc: 'Removed from local master', time: new Date().toISOString() };
+      if (!state.activities) state.activities = [];
+      state.activities.unshift(activity);
+      if (state.activities.length > 50) state.activities = state.activities.slice(0, 50);
+      state.saveConfig();
       const headers = ['query', 'name', 'website', 'company_phone', 'email', 'Lead Status'];
       const wsData = [headers, ...rows.map(r => headers.map(h => r[h] || ''))];
       const newWs = XLSX.utils.aoa_to_sheet(wsData);
@@ -883,6 +912,14 @@ function setupIPC(win) {
       } catch (e) {
         return { success: false, error: 'Network error: ' + e.message };
       }
+      if (!state.pushCounts) state.pushCounts = {};
+      const pusher = pushed_by || 'Unknown';
+      state.pushCounts[pusher] = (state.pushCounts[pusher] || 0) + 1;
+      const activity = { type: 'push', title: `Pushed "${name || 'lead'}"`, desc: `To shared sheet by ${pusher}`, time: new Date().toISOString() };
+      if (!state.activities) state.activities = [];
+      state.activities.unshift(activity);
+      if (state.activities.length > 50) state.activities = state.activities.slice(0, 50);
+      state.saveConfig();
       const wb = XLSX.readFile(masterFile);
       const sheet = wb.Sheets[wb.SheetNames[0]];
       let rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
@@ -921,6 +958,14 @@ function setupIPC(win) {
 
   ipcMain.handle('master-get-name', () => {
     return { pushedByName: state.pushedByName || '' };
+  });
+
+  ipcMain.handle('master-push-counts', () => {
+    return { pushCounts: state.pushCounts || {} };
+  });
+
+  ipcMain.handle('master-activities', () => {
+    return { activities: state.activities || [] };
   });
 
   ipcMain.handle(IPC_CHANNELS.EXPORT_FILE, async () => {

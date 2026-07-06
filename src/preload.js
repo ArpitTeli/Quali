@@ -58,6 +58,8 @@ const electronAPI = {
   masterGetScriptUrl: () => ipcRenderer.invoke('master-get-script-url'),
   masterSetName: (pushedByName) => ipcRenderer.invoke('master-set-name', { pushedByName }),
   masterGetName: () => ipcRenderer.invoke('master-get-name'),
+  masterPushCounts: () => ipcRenderer.invoke('master-push-counts'),
+  masterActivities: () => ipcRenderer.invoke('master-activities'),
 
   onBatchCreated: (callback) => {
     ipcRenderer.on(IPC_CHANNELS.BATCH_CREATED, (event, data) => callback(data));

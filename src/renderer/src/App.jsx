@@ -35,6 +35,8 @@ function App() {
   const [scriptUrl, setScriptUrl] = useState('')
   const [scriptUrlInput, setScriptUrlInput] = useState('')
   const [masterStats, setMasterStats] = useState({ totalLeads: 0, good: 0, maybe: 0, bad: 0, lastModified: null })
+  const [pushCounts, setPushCounts] = useState({})
+  const [activities, setActivities] = useState([])
   const [updateDismissed, setUpdateDismissed] = useState(false)
 
   useEffect(() => {
@@ -56,6 +58,14 @@ function App() {
       const statsResult = await window.electronAPI.masterStats()
       if (statsResult && statsResult.success) {
         setMasterStats(statsResult)
+      }
+      const pushCountsResult = await window.electronAPI.masterPushCounts()
+      if (pushCountsResult && pushCountsResult.pushCounts) {
+        setPushCounts(pushCountsResult.pushCounts)
+      }
+      const activitiesResult = await window.electronAPI.masterActivities()
+      if (activitiesResult && activitiesResult.activities) {
+        setActivities(activitiesResult.activities)
       }
     }
     checkRecovery()
@@ -150,6 +160,20 @@ function App() {
     })
   }, [])
 
+  useEffect(() => {
+    if (view === 'landing' && window.electronAPI) {
+      const refresh = async () => {
+        const actResult = await window.electronAPI.masterActivities()
+        if (actResult && actResult.activities) setActivities(actResult.activities)
+        const pcResult = await window.electronAPI.masterPushCounts()
+        if (pcResult && pcResult.pushCounts) setPushCounts(pcResult.pushCounts)
+        const statsResult = await window.electronAPI.masterStats()
+        if (statsResult && statsResult.success) setMasterStats(statsResult)
+      }
+      refresh()
+    }
+  }, [view])
+
   const handleFileLoad = useCallback((data) => {
     setExcelData(data.data)
     setColumnMapping(data.columnMapping)
@@ -233,6 +257,8 @@ function App() {
     if (result.success) {
       setMasterRows(prev => prev.filter(r => !(r.name === row.name && r.website === row.website)))
       addToast('Lead discarded', 'info')
+      const actResult = await window.electronAPI.masterActivities()
+      if (actResult && actResult.activities) setActivities(actResult.activities)
     } else {
       addToast('Discard failed: ' + (result.error || 'Unknown error'), 'error')
     }
@@ -255,6 +281,10 @@ function App() {
     if (result.success) {
       setMasterRows(prev => prev.filter(r => !(r.name === row.name && r.website === row.website)))
       addToast('Lead pushed to shared sheet', 'success')
+      const pcResult = await window.electronAPI.masterPushCounts()
+      if (pcResult && pcResult.pushCounts) setPushCounts(pcResult.pushCounts)
+      const actResult = await window.electronAPI.masterActivities()
+      if (actResult && actResult.activities) setActivities(actResult.activities)
     } else {
       addToast('Push failed: ' + (result.error || 'Unknown error'), 'error')
     }
@@ -375,11 +405,7 @@ function App() {
           </div>
           <div className="landing-center">
             <CompetitionWidget
-              data={[
-                { name: 'Arpit', leads: 45 },
-                { name: 'Priya', leads: 32 },
-                { name: 'Rahul', leads: 18 },
-              ]}
+              data={Object.entries(pushCounts).map(([name, leads]) => ({ name, leads }))}
             />
           </div>
           <div className="landing-right">
@@ -387,7 +413,7 @@ function App() {
               headerIcon={<FaBell size={22} />}
               title="Notifications"
               subtitle="Recent activity"
-              activities={[]}
+              activities={activities}
             />
             <div className="landing-right-bottom">
               <EventReminders

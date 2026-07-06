@@ -2,7 +2,32 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, MotionConfig } from 'motion/react'
 import { ChevronUpIcon } from 'lucide-react'
 
-function ActivityItem({ icon, title, desc, time }) {
+function formatTimeAgo(isoString) {
+  if (!isoString) return ''
+  const now = new Date()
+  const then = new Date(isoString)
+  const diffMs = now - then
+  const diffMins = Math.floor(diffMs / 60000)
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  const diffHrs = Math.floor(diffMins / 60)
+  if (diffHrs < 24) return `${diffHrs}h ago`
+  const diffDays = Math.floor(diffHrs / 24)
+  return `${diffDays}d ago`
+}
+
+function getActivityIcon(type) {
+  switch (type) {
+    case 'push': return '📤'
+    case 'discard': return '🗑️'
+    case 'tag': return '🏷️'
+    case 'file': return '📁'
+    case 'batch': return '⚡'
+    default: return '📋'
+  }
+}
+
+function ActivityItem({ type, title, desc, time }) {
   return (
     <motion.div
       layout
@@ -10,18 +35,19 @@ function ActivityItem({ icon, title, desc, time }) {
       animate={{ opacity: 1, x: 0 }}
       className="act-item"
     >
-      <div className="act-item-icon">{icon}</div>
+      <div className="act-item-icon">{getActivityIcon(type)}</div>
       <div className="act-item-info">
         <p className="act-item-title">{title}</p>
         <p className="act-item-desc">{desc}</p>
       </div>
-      <span className="act-item-time">{time}</span>
+      <span className="act-item-time">{formatTimeAgo(time)}</span>
     </motion.div>
   )
 }
 
-export default function ActivitiesCard({ headerIcon, title, subtitle, activities }) {
+export default function ActivitiesCard({ headerIcon, title, subtitle, activities = [] }) {
   const [open, setOpen] = useState(false)
+  const count = activities.length
 
   return (
     <MotionConfig transition={{ type: 'spring', bounce: 0, duration: 0.6 }}>
@@ -47,7 +73,7 @@ export default function ActivitiesCard({ headerIcon, title, subtitle, activities
                     transition={{ duration: 0.3, ease: 'easeOut' }}
                     className="act-card-subtitle"
                   >
-                    {subtitle}
+                    {count > 0 ? `${count} event${count === 1 ? '' : 's'}` : subtitle}
                   </motion.p>
                 )}
               </AnimatePresence>
@@ -67,9 +93,13 @@ export default function ActivitiesCard({ headerIcon, title, subtitle, activities
               className="act-card-body"
             >
               <div className="act-card-list">
-                {activities.map((item, i) => (
+                {activities.length > 0 ? activities.map((item, i) => (
                   <ActivityItem key={i} {...item} />
-                ))}
+                )) : (
+                  <div className="act-item" style={{ justifyContent: 'center', opacity: 0.5 }}>
+                    <p className="act-item-desc">No activity yet</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
