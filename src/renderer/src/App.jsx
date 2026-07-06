@@ -6,7 +6,11 @@ import { useToast } from './components/Toast'
 import ActivitiesCard from './components/right-panel/ActivitiesCard'
 import EventReminders from './components/right-panel/EventReminders'
 import TodoList from './components/right-panel/TodoList'
+import MasterCard from './components/right-panel/MasterCard'
+import CompetitionWidget from './components/right-panel/CompetitionWidget'
 import { FaBell } from 'react-icons/fa'
+import { HiArrowRight } from 'react-icons/hi2'
+import { X, FileText, BarChart3, CheckCircle, AlertCircle, XCircle, Calendar, Globe, Upload, Clock, Users } from 'lucide-react'
 
 function App() {
   const { addToast, ToastContainer } = useToast()
@@ -30,6 +34,8 @@ function App() {
   const [pushedByName, setPushedByName] = useState('')
   const [scriptUrl, setScriptUrl] = useState('')
   const [scriptUrlInput, setScriptUrlInput] = useState('')
+  const [masterStats, setMasterStats] = useState({ totalLeads: 0, good: 0, maybe: 0, bad: 0, lastModified: null })
+  const [updateDismissed, setUpdateDismissed] = useState(false)
 
   useEffect(() => {
     const checkRecovery = async () => {
@@ -46,6 +52,10 @@ function App() {
       const nameResult = await window.electronAPI.masterGetName()
       if (nameResult && nameResult.pushedByName) {
         setPushedByName(nameResult.pushedByName)
+      }
+      const statsResult = await window.electronAPI.masterStats()
+      if (statsResult && statsResult.success) {
+        setMasterStats(statsResult)
       }
     }
     checkRecovery()
@@ -284,20 +294,30 @@ function App() {
   }, [])
 
   const renderUpdateBanner = () => {
-    if (!updateStatus || updateStatus === 'checking') return null
+    if (!updateStatus || updateStatus === 'checking' || updateDismissed) return null
     return (
-      <div className={`update-banner update-${updateStatus}`}>
-        {updateStatus === 'available' && (
-          <span>Update available (v{updateVersion}) - downloading...</span>
-        )}
-        {updateStatus === 'downloaded' && (
-          <span>
-            Update ready (v{updateVersion})
-            <button className="btn btn-primary btn-sm" onClick={() => window.electronAPI.installUpdate()}>
-              Restart Now
-            </button>
+      <div className="update-banner">
+        <div className="update-banner-content">
+          <span className="update-banner-text">
+            {updateStatus === 'available' && (
+              <>Update available (v{updateVersion}) — downloading...</>
+            )}
+            {updateStatus === 'downloaded' && (
+              <>Update ready (v{updateVersion})</>
+            )}
           </span>
-        )}
+          {updateStatus === 'downloaded' && (
+            <div className="update-banner-actions">
+              <button className="update-banner-btn" onClick={() => window.electronAPI.installUpdate()}>
+                Restart Now
+                <HiArrowRight className="update-banner-btn-icon" />
+              </button>
+            </div>
+          )}
+        </div>
+        <button className="update-banner-close" onClick={() => setUpdateDismissed(true)}>
+          <X size={14} />
+        </button>
       </div>
     )
   }
@@ -313,27 +333,54 @@ function App() {
         <main className="app-main landing-main">
           <div className="landing-left">
             <div className="landing-cards">
-              <div className="master-card">
-                <div className="master-card-icon">📊</div>
-                <div className="master-card-info">
-                  <h3>Local Master Excel</h3>
-                  <p className="master-card-path">{localMasterPath || 'No file yet — start reviewing to create one'}</p>
-                </div>
-                <button className="btn btn-primary btn-sm" onClick={handleOpenMasterViewer}>View</button>
-                <button className="btn btn-secondary btn-sm" onClick={handleOpenLocalMaster}>Open</button>
-              </div>
-              <div className="master-card">
-                <div className="master-card-icon">🌐</div>
-                <div className="master-card-info">
-                  <h3>Shared Master Sheet</h3>
-                  <p className="master-card-path">Google Drive — all users</p>
-                </div>
-                <button className="btn btn-secondary btn-sm" onClick={handleOpenSharedFile}>Open</button>
-              </div>
+              <MasterCard
+                icon={<FileText size={20} />}
+                title="Local Master Excel"
+                miniGraph="M2 18C15 15 25 5 45 8C65 11 70 2 78 2"
+                stats={[
+                  { icon: <FileText size={14} />, label: 'File', value: <span className="mc-stat-text">{localMasterPath ? 'quali_master.xlsx' : 'No file yet'}</span> },
+                  { icon: <BarChart3 size={14} />, label: 'Total Leads', value: <span className="mc-stat-bold">{masterStats.totalLeads}</span> },
+                  { icon: <CheckCircle size={14} />, label: 'Good', value: <span className="mc-stat-green">{masterStats.good}</span> },
+                  { icon: <AlertCircle size={14} />, label: 'Maybe', value: <span className="mc-stat-yellow">{masterStats.maybe}</span> },
+                  { icon: <XCircle size={14} />, label: 'Bad', value: <span className="mc-stat-red">{masterStats.bad}</span> },
+                  { icon: <Calendar size={14} />, label: 'Last Updated', value: <span className="mc-stat-text">{masterStats.lastModified ? new Date(masterStats.lastModified).toLocaleDateString() : '—'}</span> },
+                ]}
+                actions={
+                  <div className="mc-btn-row">
+                    <button className="mc-btn mc-btn-primary" onClick={handleOpenMasterViewer}>View</button>
+                    <button className="mc-btn mc-btn-secondary" onClick={handleOpenLocalMaster}>Open</button>
+                  </div>
+                }
+              />
+              <MasterCard
+                icon={<Globe size={20} />}
+                title="Shared Master Sheet"
+                miniGraph="M2 12C18 8 35 18 55 10C70 5 75 14 78 8"
+                stats={[
+                  { icon: <Globe size={14} />, label: 'URL', value: <span className="mc-stat-text">Google Drive — all users</span> },
+                  { icon: <Upload size={14} />, label: 'Total Pushed', value: <span className="mc-stat-bold">—</span> },
+                  { icon: <Clock size={14} />, label: 'Last Push', value: <span className="mc-stat-text">—</span> },
+                  { icon: <Users size={14} />, label: 'Top Pusher', value: <span className="mc-stat-text">—</span> },
+                ]}
+                actions={
+                  <div className="mc-btn-row">
+                    <button className="mc-btn mc-btn-secondary" onClick={handleOpenSharedFile}>Open</button>
+                  </div>
+                }
+              />
             </div>
             <div className="landing-upload">
               <FilePicker onFileLoad={handleFileLoad} />
             </div>
+          </div>
+          <div className="landing-center">
+            <CompetitionWidget
+              data={[
+                { name: 'Arpit', leads: 45 },
+                { name: 'Priya', leads: 32 },
+                { name: 'Rahul', leads: 18 },
+              ]}
+            />
           </div>
           <div className="landing-right">
             <ActivitiesCard

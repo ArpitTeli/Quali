@@ -813,6 +813,33 @@ function setupIPC(win) {
     }
   });
 
+  ipcMain.handle('master-stats', () => {
+    try {
+      const masterFile = state.localMasterPath;
+      if (!fs.existsSync(masterFile)) {
+        return { success: true, totalLeads: 0, good: 0, maybe: 0, bad: 0, lastModified: null };
+      }
+      const wb = XLSX.readFile(masterFile);
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      const stats = { totalLeads: rows.length, good: 0, maybe: 0, bad: 0 };
+      rows.forEach(r => {
+        const s = (r['Lead Status'] || '').toLowerCase();
+        if (s === 'green') stats.good++;
+        else if (s === 'yellow') stats.maybe++;
+        else if (s === 'red') stats.bad++;
+      });
+      let lastModified = null;
+      try {
+        const stat = fs.statSync(masterFile);
+        lastModified = stat.mtime.toISOString();
+      } catch (e) {}
+      return { success: true, ...stats, lastModified };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle('master-discard', (event, { name, website }) => {
     try {
       const masterFile = state.localMasterPath;

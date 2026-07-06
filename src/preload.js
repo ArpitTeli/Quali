@@ -51,6 +51,7 @@ const electronAPI = {
   openSharedFile: () => ipcRenderer.invoke('open-shared-file'),
 
   masterRead: () => ipcRenderer.invoke('master-read'),
+  masterStats: () => ipcRenderer.invoke('master-stats'),
   masterDiscard: (name, website) => ipcRenderer.invoke('master-discard', { name, website }),
   masterPush: (data) => ipcRenderer.invoke('master-push', data),
   masterSetScriptUrl: (scriptUrl) => ipcRenderer.invoke('master-set-script-url', { scriptUrl }),
