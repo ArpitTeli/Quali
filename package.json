@@ -29,7 +29,8 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "QualiLogo.ico"
+      "icon": "QualiLogo.ico",
+      "artifactName": "${productName}-${version}.${ext}"
     },
     "extraResources": [
       {
