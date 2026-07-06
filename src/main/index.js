@@ -112,7 +112,7 @@ class AppState {
     this.totalCount = 0;
     this.columnMapping = {};
     this.localMasterPath = path.join(app.getPath('documents'), 'leadworker_master.xlsx');
-    this.scriptUrl = 'https://script.google.com/macros/s/AKfycbxm2CFldmla-NbDy92Kbj3SvUVE6EqMXilJaO28J0wvY2bY5zCwJrS5oH6ZHOgdYeZM/exec';
+    this.scriptUrl = 'https://script.google.com/macros/s/AKfycbzgIDOJYQ9sHJEo1j2J-wQAAiTbDXCk-_OaOINnsU7cTJMuUZpUCKITDVclWPJhRios/exec';
     this.recoveryPath = path.join(app.getPath('userData'), 'recovery.json');
     this.configPath = path.join(app.getPath('userData'), 'config.json');
     this.loadConfig();
@@ -123,7 +123,7 @@ class AppState {
     try {
       if (fs.existsSync(this.configPath)) {
         const cfg = JSON.parse(fs.readFileSync(this.configPath, 'utf-8'));
-        this.scriptUrl = cfg.scriptUrl || 'https://script.google.com/macros/s/AKfycbxm2CFldmla-NbDy92Kbj3SvUVE6EqMXilJaO28J0wvY2bY5zCwJrS5oH6ZHOgdYeZM/exec';
+        this.scriptUrl = cfg.scriptUrl || 'https://script.google.com/macros/s/AKfycbzgIDOJYQ9sHJEo1j2J-wQAAiTbDXCk-_OaOINnsU7cTJMuUZpUCKITDVclWPJhRios/exec';
       }
     } catch (e) { /* ignore */ }
   }
