@@ -39,6 +39,10 @@ function App() {
           setScriptUrlInput(state.scriptUrl)
         }
       }
+      const nameResult = await window.electronAPI.masterGetName()
+      if (nameResult && nameResult.pushedByName) {
+        setPushedByName(nameResult.pushedByName)
+      }
     }
     checkRecovery()
   }, [])
@@ -298,7 +302,7 @@ function App() {
     return (
       <div className="app">
         <header className="app-header">
-          <h1>LeadWorker</h1>
+          <h1>Quali</h1>
           <p className="app-subtitle">Lead Review Tool{appVersion ? ` — v${appVersion}` : ''}</p>
         </header>
         {renderUpdateBanner()}
@@ -333,7 +337,7 @@ function App() {
     return (
       <div className="app">
         <header className="app-header">
-          <h1>LeadWorker</h1>
+          <h1>Quali</h1>
           <p className="app-subtitle">{isAdditional ? 'Add Another File' : 'Configure Review Session'}</p>
         </header>
         {renderUpdateBanner()}
@@ -363,7 +367,7 @@ function App() {
     return (
       <div className="app">
         <header className="app-header">
-          <h1>LeadWorker</h1>
+          <h1>Quali</h1>
           <p className="app-subtitle">Local Master Excel</p>
         </header>
         {renderUpdateBanner()}
@@ -375,7 +379,10 @@ function App() {
                 type="text"
                 className="master-name-input"
                 value={pushedByName}
-                onChange={(e) => setPushedByName(e.target.value)}
+                onChange={(e) => {
+                  setPushedByName(e.target.value)
+                  window.electronAPI.masterSetName(e.target.value)
+                }}
                 placeholder="Your name (for pushed_by)"
               />
               <span className="master-row-count">{masterRows.length} leads</span>
@@ -450,7 +457,7 @@ function App() {
     return (
       <div className="app">
         <header className="app-header">
-          <h1>LeadWorker</h1>
+          <h1>Quali</h1>
           <div className="stats-bar">
             <span>{stats.processed} / {stats.total} reviewed</span>
             <span className="separator">|</span>

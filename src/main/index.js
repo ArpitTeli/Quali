@@ -111,8 +111,9 @@ class AppState {
     this.processedCount = 0;
     this.totalCount = 0;
     this.columnMapping = {};
-    this.localMasterPath = path.join(app.getPath('documents'), 'leadworker_master.xlsx');
+    this.localMasterPath = path.join(app.getPath('documents'), 'quali_master.xlsx');
     this.scriptUrl = 'https://script.google.com/macros/s/AKfycbzY-bRTbKDuLlbUwldHs9LoC9evce_5psKNTPt41mK6VXL-2QrOSjk_IkVHPh5v3fnS/exec';
+    this.pushedByName = '';
     this.recoveryPath = path.join(app.getPath('userData'), 'recovery.json');
     this.configPath = path.join(app.getPath('userData'), 'config.json');
     this.loadConfig();
@@ -124,6 +125,7 @@ class AppState {
       if (fs.existsSync(this.configPath)) {
         const cfg = JSON.parse(fs.readFileSync(this.configPath, 'utf-8'));
         this.scriptUrl = cfg.scriptUrl || 'https://script.google.com/macros/s/AKfycbzY-bRTbKDuLlbUwldHs9LoC9evce_5psKNTPt41mK6VXL-2QrOSjk_IkVHPh5v3fnS/exec';
+        this.pushedByName = cfg.pushedByName || '';
       }
     } catch (e) { /* ignore */ }
   }
@@ -131,7 +133,8 @@ class AppState {
   saveConfig() {
     try {
       fs.writeFileSync(this.configPath, JSON.stringify({
-        scriptUrl: this.scriptUrl
+        scriptUrl: this.scriptUrl,
+        pushedByName: this.pushedByName || ''
       }, null, 2));
     } catch (e) { console.error('Config save failed:', e); }
   }
@@ -413,6 +416,13 @@ function getMiniPlayerPath() {
   return path.join(__dirname, '../src/mini-player/index.html');
 }
 
+function getIconPath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'QualiLogo.ico');
+  }
+  return path.join(__dirname, '..', 'QualiLogo.ico');
+}
+
 function sendToRenderer(channel, ...args) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(channel, ...args);
@@ -499,7 +509,7 @@ function createMiniPlayerWindow() {
     x: sw - 400, y: sh - 540,
     frame: false, alwaysOnTop: true, resizable: true,
     transparent: false, skipTaskbar: true,
-    title: 'Lead Review - Mini Player',
+    title: 'Quali - Mini Player', icon: getIconPath(),
     backgroundColor: '#1e1e1e',
     webPreferences: { preload: getPreloadPath(), contextIsolation: true, nodeIntegration: false }
   });
@@ -833,10 +843,11 @@ function setupIPC(win) {
       if (!fs.existsSync(masterFile)) return { success: false, error: 'Master file not found' };
       if (!state.scriptUrl) return { success: false, error: 'No Apps Script URL configured' };
       try {
+        const cleanPhone = String(company_phone || '').replace(/^\+?91/, '');
         const resp = await fetch(state.scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, name, website, company_phone, email, pushed_by, 'Lead Status': '' })
+          body: JSON.stringify({ query, name, website, company_phone: cleanPhone, email, pushed_by, 'Lead Status': '' })
         });
         if (!resp.ok) {
           const text = await resp.text().catch(() => '');
@@ -875,6 +886,16 @@ function setupIPC(win) {
     return { scriptUrl: state.scriptUrl };
   });
 
+  ipcMain.handle('master-set-name', (event, { pushedByName }) => {
+    state.pushedByName = pushedByName || '';
+    state.saveConfig();
+    return { success: true };
+  });
+
+  ipcMain.handle('master-get-name', () => {
+    return { pushedByName: state.pushedByName || '' };
+  });
+
   ipcMain.handle(IPC_CHANNELS.EXPORT_FILE, async () => {
     const defaultPath = state.filePath
       ? state.filePath.replace(/\.xlsx?$/i, '_reviewed.xlsx')
@@ -898,7 +919,7 @@ app.whenReady().then(() => {
   const isDev = !app.isPackaged;
   mainWindow = new BrowserWindow({
     width: 1200, height: 800, minWidth: 800, minHeight: 600,
-    title: 'LeadWorker', backgroundColor: '#1a1a1a',
+    title: 'Quali', backgroundColor: '#1a1a1a', icon: getIconPath(),
     webPreferences: { preload: getPreloadPath(), contextIsolation: true, nodeIntegration: false }
   });
 
@@ -956,7 +977,7 @@ app.on('activate', () => {
       const isDev = !app.isPackaged;
       mainWindow = new BrowserWindow({
         width: 1200, height: 800, minWidth: 800, minHeight: 600,
-        title: 'LeadWorker', backgroundColor: '#1a1a1a',
+        title: 'Quali', backgroundColor: '#1a1a1a', icon: getIconPath(),
         webPreferences: { preload: getPreloadPath(), contextIsolation: true, nodeIntegration: false }
       });
       if (isDev) {

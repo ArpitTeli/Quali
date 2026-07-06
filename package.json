@@ -1,6 +1,6 @@
 {
-  "name": "leadworker",
-  "version": "1.0.11",
+  "name": "quali",
+  "version": "1.0.16",
   "description": "Lead Review Tool - Batch Google search and triage leads from Excel",
   "main": "dist/main/index.js",
   "scripts": {
@@ -15,8 +15,8 @@
     "electron:build:linux": "vite build && electron-builder --linux"
   },
   "build": {
-    "appId": "com.leadworker.app",
-    "productName": "LeadWorker",
+    "appId": "com.quali.app",
+    "productName": "Quali",
     "files": [
       "dist/**/*"
     ],
@@ -29,8 +29,15 @@
     },
     "win": {
       "target": "nsis",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "icon": "QualiLogo.ico"
     },
+    "extraResources": [
+      {
+        "from": "QualiLogo.ico",
+        "to": "QualiLogo.ico"
+      }
+    ],
     "mac": {
       "target": "dmg"
     },
@@ -52,6 +59,7 @@
     "concurrently": "^8.2.2",
     "electron": "^30.0.8",
     "electron-builder": "^24.13.3",
+    "png-to-ico": "^3.0.1",
     "vite": "^5.2.11",
     "vite-plugin-electron": "^0.28.8",
     "vite-plugin-electron-renderer": "^0.14.5",
