@@ -248,6 +248,12 @@ export default function EventReminders({ title, date: initialDate, initialRemind
                     <button onClick={() => removeReminder(reminder.id)} className="er-remove-btn">
                       <X size={16} strokeWidth={2.5} />
                     </button>
+                    <button
+                      onClick={() => updateReminder(reminder.id, { active: !reminder.active })}
+                      className={`er-set-btn${reminder.active ? ' er-set-btn-active' : ''}`}
+                    >
+                      {reminder.active ? 'Set' : 'Set'}
+                    </button>
                   </div>
                 </motion.div>
               ))}
