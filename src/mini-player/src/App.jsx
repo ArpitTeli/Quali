@@ -118,18 +118,21 @@ function App() {
                 <button
                   className={`tag-btn green ${row.tag === 'green' ? 'active' : ''}`}
                   onClick={() => handleTag(row.rowId, 'green')}
-                  title="Green"
-                />
+                >
+                  Good
+                </button>
                 <button
                   className={`tag-btn yellow ${row.tag === 'yellow' ? 'active' : ''}`}
                   onClick={() => handleTag(row.rowId, 'yellow')}
-                  title="Yellow"
-                />
+                >
+                  Maybe
+                </button>
                 <button
                   className={`tag-btn red ${row.tag === 'red' ? 'active' : ''}`}
                   onClick={() => handleTag(row.rowId, 'red')}
-                  title="Red"
-                />
+                >
+                  Bad
+                </button>
               </div>
             </div>
           ))

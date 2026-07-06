@@ -123,43 +123,52 @@ body {
 }
 
 .tag-btn {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid transparent;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.15s;
-  padding: 0;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .tag-btn.green {
-  background: #2a3a2a;
-  border-color: #4ade80;
+  background: rgba(74,222,128,0.1);
+  color: #4ade80;
+  border-color: rgba(74,222,128,0.2);
 }
 
 .tag-btn.green:hover,
 .tag-btn.green.active {
   background: #4ade80;
+  color: #000;
+  border-color: #4ade80;
 }
 
 .tag-btn.yellow {
-  background: #3a3520;
-  border-color: #facc15;
+  background: rgba(250,204,21,0.1);
+  color: #facc15;
+  border-color: rgba(250,204,21,0.2);
 }
 
 .tag-btn.yellow:hover,
 .tag-btn.yellow.active {
   background: #facc15;
+  color: #000;
+  border-color: #facc15;
 }
 
 .tag-btn.red {
-  background: #3a2525;
-  border-color: #f87171;
+  background: rgba(248,113,113,0.1);
+  color: #f87171;
+  border-color: rgba(248,113,113,0.2);
 }
 
 .tag-btn.red:hover,
 .tag-btn.red.active {
   background: #f87171;
+  color: #000;
+  border-color: #f87171;
 }
 
 .mini-player-footer {

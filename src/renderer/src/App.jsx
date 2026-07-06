@@ -3,6 +3,10 @@ import FilePicker from './components/FilePicker'
 import SetupView from './components/SetupView'
 import TabStrip from './components/TabStrip'
 import { useToast } from './components/Toast'
+import ActivitiesCard from './components/right-panel/ActivitiesCard'
+import EventReminders from './components/right-panel/EventReminders'
+import TodoList from './components/right-panel/TodoList'
+import { FaBell, FaCheck, FaUser, FaFileAlt, FaStar } from 'react-icons/fa'
 
 function App() {
   const { addToast, ToastContainer } = useToast()
@@ -306,27 +310,54 @@ function App() {
           <p className="app-subtitle">Lead Review Tool{appVersion ? ` — v${appVersion}` : ''}</p>
         </header>
         {renderUpdateBanner()}
-        <main className="app-main">
-          <div className="landing-cards">
-            <div className="master-card">
-              <div className="master-card-icon">📊</div>
-              <div className="master-card-info">
-                <h3>Local Master Excel</h3>
-                <p className="master-card-path">{localMasterPath || 'No file yet — start reviewing to create one'}</p>
+        <main className="app-main landing-main">
+          <div className="landing-left">
+            <div className="landing-cards">
+              <div className="master-card">
+                <div className="master-card-icon">📊</div>
+                <div className="master-card-info">
+                  <h3>Local Master Excel</h3>
+                  <p className="master-card-path">{localMasterPath || 'No file yet — start reviewing to create one'}</p>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={handleOpenMasterViewer}>View</button>
+                <button className="btn btn-secondary btn-sm" onClick={handleOpenLocalMaster}>Open</button>
               </div>
-              <button className="btn btn-primary btn-sm" onClick={handleOpenMasterViewer}>View</button>
-              <button className="btn btn-secondary btn-sm" onClick={handleOpenLocalMaster}>Open</button>
+              <div className="master-card">
+                <div className="master-card-icon">🌐</div>
+                <div className="master-card-info">
+                  <h3>Shared Master Sheet</h3>
+                  <p className="master-card-path">Google Drive — all users</p>
+                </div>
+                <button className="btn btn-secondary btn-sm" onClick={handleOpenSharedFile}>Open</button>
+              </div>
             </div>
-            <div className="master-card">
-              <div className="master-card-icon">🌐</div>
-              <div className="master-card-info">
-                <h3>Shared Master Sheet</h3>
-                <p className="master-card-path">Google Drive — all users</p>
-              </div>
-              <button className="btn btn-secondary btn-sm" onClick={handleOpenSharedFile}>Open</button>
+            <div className="landing-upload">
+              <FilePicker onFileLoad={handleFileLoad} />
             </div>
           </div>
-          <FilePicker onFileLoad={handleFileLoad} />
+          <div className="landing-right">
+            <ActivitiesCard
+              headerIcon={<FaBell size={22} />}
+              title="Notifications"
+              subtitle="Recent activity"
+              activities={[
+                { icon: <FaUser size={18} />, title: 'New lead added', desc: '3 leads from Excel import', time: '2m ago' },
+                { icon: <FaCheck size={18} />, title: 'Lead reviewed', desc: '12 leads marked as Good', time: '15m ago' },
+                { icon: <FaFileAlt size={18} />, title: 'Master exported', desc: 'quali_master.xlsx updated', time: '1h ago' },
+                { icon: <FaStar size={18} />, title: 'Batch completed', desc: '20 leads processed', time: '2h ago' },
+              ]}
+            />
+            <div className="landing-right-bottom">
+              <EventReminders
+                title="Follow-up Reminder"
+                date="2026-07-15"
+                initialReminders={[
+                  { id: '1', type: 'Notification', value: 30, unit: 'minutes' },
+                ]}
+              />
+              <TodoList />
+            </div>
+          </div>
         </main>
         <ToastContainer />
       </div>
@@ -424,6 +455,7 @@ function App() {
                 <tbody>
                   {masterRows.map((row, i) => {
                     const status = (row['Lead Status'] || '').toLowerCase()
+                    const statusLabel = status === 'green' ? 'Good' : status === 'yellow' ? 'Maybe' : status === 'red' ? 'Bad' : row['Lead Status'] || ''
                     return (
                       <tr key={i}>
                         <td className="font-medium">{row.name || '—'}</td>
@@ -432,8 +464,8 @@ function App() {
                         <td className="text-muted">{row.company_phone || '—'}</td>
                         <td className="text-muted">{row.email || '—'}</td>
                         <td>
-                          {row['Lead Status'] ? (
-                            <span className={`badge badge-${status}`}>{row['Lead Status']}</span>
+                          {statusLabel ? (
+                            <span className={`badge badge-${status}`}>{statusLabel}</span>
                           ) : (
                             <span className="badge badge-muted">—</span>
                           )}

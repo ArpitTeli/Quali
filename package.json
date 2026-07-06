@@ -1,6 +1,6 @@
 {
   "name": "quali",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Lead Review Tool - Batch Google search and triage leads from Excel",
   "main": "dist/main/index.js",
   "scripts": {
@@ -49,8 +49,11 @@
   "license": "ISC",
   "dependencies": {
     "electron-updater": "^6.8.9",
+    "lucide-react": "^1.23.0",
+    "motion": "^12.42.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-icons": "^5.7.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
