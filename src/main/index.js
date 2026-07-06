@@ -116,6 +116,8 @@ class AppState {
     this.pushedByName = '';
     this.pushCounts = {};
     this.activities = [];
+    this.todos = [];
+    this.reminders = [];
     this.recoveryPath = path.join(app.getPath('userData'), 'recovery.json');
     this.configPath = path.join(app.getPath('userData'), 'config.json');
     this.loadConfig();
@@ -130,6 +132,8 @@ class AppState {
         this.pushedByName = cfg.pushedByName || '';
         this.pushCounts = cfg.pushCounts || {};
         this.activities = cfg.activities || [];
+        this.todos = cfg.todos || [];
+        this.reminders = cfg.reminders || [];
       }
     } catch (e) { /* ignore */ }
   }
@@ -140,7 +144,9 @@ class AppState {
         scriptUrl: this.scriptUrl,
         pushedByName: this.pushedByName || '',
         pushCounts: this.pushCounts || {},
-        activities: this.activities || []
+        activities: this.activities || [],
+        todos: this.todos || [],
+        reminders: this.reminders || []
       }, null, 2));
     } catch (e) { console.error('Config save failed:', e); }
   }
@@ -966,6 +972,26 @@ function setupIPC(win) {
 
   ipcMain.handle('master-activities', () => {
     return { activities: state.activities || [] };
+  });
+
+  ipcMain.handle('todos-get', () => {
+    return { todos: state.todos || [] };
+  });
+
+  ipcMain.handle('todos-save', (event, { todos }) => {
+    state.todos = todos || [];
+    state.saveConfig();
+    return { success: true };
+  });
+
+  ipcMain.handle('reminders-get', () => {
+    return { reminders: state.reminders || [] };
+  });
+
+  ipcMain.handle('reminders-save', (event, { reminders }) => {
+    state.reminders = reminders || [];
+    state.saveConfig();
+    return { success: true };
   });
 
   ipcMain.handle(IPC_CHANNELS.EXPORT_FILE, async () => {

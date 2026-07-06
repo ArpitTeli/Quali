@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react'
 import { Minus, Plus, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { FaBell, FaCheck } from 'react-icons/fa6'
@@ -6,13 +6,14 @@ import { MdEmail } from 'react-icons/md'
 import { BiSolidPencil } from 'react-icons/bi'
 
 const NumberRoller = ({ value }) => {
-  const [prevValue, setPrevValue] = useState(value)
-  const [direction, setDirection] = useState(1)
+  const prevRef = useRef(value)
+  const dirRef = useRef(1)
 
-  if (prevValue !== value) {
-    setDirection(value >= prevValue ? 1 : -1)
-    setPrevValue(value)
+  if (prevRef.current !== value) {
+    dirRef.current = value >= prevRef.current ? 1 : -1
+    prevRef.current = value
   }
+  const direction = dirRef.current
 
   const variants = {
     initial: (d) => ({
@@ -90,6 +91,22 @@ export default function EventReminders({ title, date: initialDate, initialRemind
   const [reminders, setReminders] = useState(initialReminders)
   const [date, setDate] = useState(initialDate)
   const [isEditingDate, setIsEditingDate] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!window.electronAPI) { setLoaded(true); return }
+    window.electronAPI.remindersGet().then((result) => {
+      if (result && result.reminders && result.reminders.length > 0) {
+        setReminders(result.reminders)
+      }
+      setLoaded(true)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!loaded || !window.electronAPI) return
+    window.electronAPI.remindersSave(reminders)
+  }, [reminders, loaded])
 
   const addReminder = () => {
     setReminders([

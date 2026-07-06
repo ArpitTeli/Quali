@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { SearchIcon } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { SearchIcon, Plus, X, Trash2 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '../base-ui/avatar'
 import { Badge } from '../base-ui/badge'
 import { Checkbox } from '../base-ui/checkbox'
@@ -7,8 +7,6 @@ import { Input } from '../base-ui/input'
 import { Label } from '../base-ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../base-ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../base-ui/table'
-
-const defaultItems = []
 
 const defaultFilters = {
   client: '',
@@ -24,7 +22,45 @@ const priorityBadgeClass = {
 export default function TodoList() {
   const [filters, setFilters] = useState(defaultFilters)
   const [selectedIds, setSelectedIds] = useState([])
-  const [items] = useState(defaultItems)
+  const [items, setItems] = useState([])
+  const [showAdd, setShowAdd] = useState(false)
+  const [newClient, setNewClient] = useState('')
+  const [newTime, setNewTime] = useState('')
+  const [newPriority, setNewPriority] = useState('Medium')
+
+  useEffect(() => {
+    if (!window.electronAPI) return
+    window.electronAPI.todosGet().then((result) => {
+      if (result && result.todos) setItems(result.todos)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!window.electronAPI || items.length === 0) return
+    window.electronAPI.todosSave(items)
+  }, [items])
+
+  const addItem = () => {
+    const name = newClient.trim()
+    if (!name) return
+    const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    setItems(prev => [...prev, {
+      id: Date.now(),
+      client: name,
+      fallback: initials,
+      time: newTime.trim() || '—',
+      priority: newPriority,
+    }])
+    setNewClient('')
+    setNewTime('')
+    setNewPriority('Medium')
+    setShowAdd(false)
+  }
+
+  const removeItem = (id) => {
+    setItems(prev => prev.filter(item => item.id !== id))
+    setSelectedIds(prev => prev.filter(sid => sid !== id))
+  }
 
   const filteredItems = useMemo(() => {
     const query = filters.client.trim().toLowerCase()
@@ -60,6 +96,47 @@ export default function TodoList() {
   return (
     <div className="todo-wrapper">
       <div className="todo-card">
+        <div className="todo-header-row">
+          <h3 className="todo-heading">Tasks</h3>
+          <button className="todo-add-btn" onClick={() => setShowAdd(!showAdd)}>
+            {showAdd ? <X size={14} /> : <Plus size={14} />}
+            {showAdd ? 'Cancel' : 'Add'}
+          </button>
+        </div>
+
+        {showAdd && (
+          <div className="todo-add-form">
+            <Input
+              className="todo-add-input"
+              value={newClient}
+              onChange={(e) => setNewClient(e.target.value)}
+              placeholder="Client / task name"
+              onKeyDown={(e) => e.key === 'Enter' && addItem()}
+              autoFocus
+            />
+            <Input
+              className="todo-add-input"
+              value={newTime}
+              onChange={(e) => setNewTime(e.target.value)}
+              placeholder="Approx time (e.g. 2h)"
+              onKeyDown={(e) => e.key === 'Enter' && addItem()}
+            />
+            <div className="todo-add-actions">
+              <Select value={newPriority} onValueChange={setNewPriority}>
+                <SelectTrigger className="todo-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="High">High</SelectItem>
+                  <SelectItem value="Medium">Medium</SelectItem>
+                  <SelectItem value="Low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+              <button className="todo-save-btn" onClick={addItem} disabled={!newClient.trim()}>Save</button>
+            </div>
+          </div>
+        )}
+
         <div className="todo-filters">
           <div className="todo-filter-group">
             <Label>Client</Label>
@@ -107,11 +184,12 @@ export default function TodoList() {
               <TableHead className="todo-th">Client</TableHead>
               <TableHead className="todo-th">Approx Time</TableHead>
               <TableHead className="todo-th">Priority</TableHead>
+              <TableHead className="todo-th todo-th-actions"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredItems.length > 0 ? (
-              filteredItems.map((item) => {
+              filteredItems.map((item, i) => {
                 const isSelected = selectedIdSet.has(item.id)
                 return (
                   <TableRow key={item.id} data-state={isSelected ? 'selected' : undefined} className="todo-row">
@@ -122,7 +200,7 @@ export default function TodoList() {
                         aria-label={`Select ${item.client}`}
                       />
                     </TableCell>
-                    <TableCell className="todo-td todo-td-muted">{item.id}</TableCell>
+                    <TableCell className="todo-td todo-td-muted">{i + 1}</TableCell>
                     <TableCell className="todo-td">
                       <div className="todo-client">
                         <Avatar className="todo-avatar">
@@ -135,12 +213,17 @@ export default function TodoList() {
                     <TableCell className="todo-td">
                       <Badge className={priorityBadgeClass[item.priority]}>{item.priority}</Badge>
                     </TableCell>
+                    <TableCell className="todo-td">
+                      <button className="todo-delete-btn" onClick={() => removeItem(item.id)} title="Delete">
+                        <Trash2 size={13} />
+                      </button>
+                    </TableCell>
                   </TableRow>
                 )
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="todo-empty">No results.</TableCell>
+                <TableCell colSpan={6} className="todo-empty">No tasks yet</TableCell>
               </TableRow>
             )}
           </TableBody>

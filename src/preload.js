@@ -60,6 +60,10 @@ const electronAPI = {
   masterGetName: () => ipcRenderer.invoke('master-get-name'),
   masterPushCounts: () => ipcRenderer.invoke('master-push-counts'),
   masterActivities: () => ipcRenderer.invoke('master-activities'),
+  todosGet: () => ipcRenderer.invoke('todos-get'),
+  todosSave: (todos) => ipcRenderer.invoke('todos-save', { todos }),
+  remindersGet: () => ipcRenderer.invoke('reminders-get'),
+  remindersSave: (reminders) => ipcRenderer.invoke('reminders-save', { reminders }),
 
   onBatchCreated: (callback) => {
     ipcRenderer.on(IPC_CHANNELS.BATCH_CREATED, (event, data) => callback(data));

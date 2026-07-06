@@ -1214,6 +1214,107 @@ body {
   color: var(--muted-foreground, #666);
 }
 
+.todo-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.todo-heading {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground, #e0e0e0);
+  margin: 0;
+}
+
+.todo-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: var(--foreground, #e0e0e0);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.todo-add-btn:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.todo-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02);
+}
+
+.todo-add-input {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.todo-add-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.todo-add-actions .todo-select {
+  flex: 1;
+}
+
+.todo-save-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(74,222,128,0.15);
+  color: #4ade80;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.todo-save-btn:hover:not(:disabled) {
+  background: rgba(74,222,128,0.25);
+}
+
+.todo-save-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.todo-th-actions {
+  width: 36px;
+}
+
+.todo-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground, #666);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.todo-delete-btn:hover {
+  background: rgba(248,113,113,0.12);
+  color: #f87171;
+}
+
 /* ── Landing right side layout ──────────────────────────────────── */
 
 .landing-center {
