@@ -1143,12 +1143,13 @@ body {
   border-radius: 16px;
   border: 1.5px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.03);
+  padding: 16px 18px;
 }
 
 .todo-filters {
   display: grid;
   gap: 10px;
-  padding: 14px 16px;
+  padding: 0 0 14px 0;
   border-bottom: 1px dashed rgba(255,255,255,0.08);
 }
 
@@ -1286,6 +1287,10 @@ body {
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.02);
+  margin-left: -18px;
+  margin-right: -18px;
+  padding-left: 18px;
+  padding-right: 18px;
 }
 
 .todo-add-input {
