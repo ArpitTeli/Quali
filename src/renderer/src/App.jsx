@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import FilePicker from './components/FilePicker'
 import SetupView from './components/SetupView'
 import TabStrip from './components/TabStrip'
+import LoginView from './components/LoginView'
 import { useToast } from './components/Toast'
 import ActivitiesCard from './components/right-panel/ActivitiesCard'
 import TodoList from './components/right-panel/TodoList'
@@ -40,6 +41,23 @@ function App() {
   const [selectedCommentRow, setSelectedCommentRow] = useState(null)
   const [commentText, setCommentText] = useState('')
   const commentTimerRef = useRef(null)
+  const [auth, setAuth] = useState({ loggedIn: false, displayName: '', uid: '' })
+  const [authLoading, setAuthLoading] = useState(true)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (!window.electronAPI) { setAuthLoading(false); return }
+      try {
+        const result = await window.electronAPI.checkAuth()
+        if (result.loggedIn) {
+          setAuth({ loggedIn: true, displayName: result.displayName, uid: result.uid })
+          setPushedByName(result.displayName)
+        }
+      } catch (e) { /* ignore */ }
+      setAuthLoading(false)
+    }
+    checkAuth()
+  }, [])
 
   useEffect(() => {
     const checkRecovery = async () => {
@@ -52,10 +70,6 @@ function App() {
           setScriptUrl(state.scriptUrl)
           setScriptUrlInput(state.scriptUrl)
         }
-      }
-      const nameResult = await window.electronAPI.masterGetName()
-      if (nameResult && nameResult.pushedByName) {
-        setPushedByName(nameResult.pushedByName)
       }
       const statsResult = await window.electronAPI.masterStats()
       if (statsResult && statsResult.success) {
@@ -235,6 +249,23 @@ function App() {
     await window.electronAPI.openLocalMaster()
   }, [])
 
+  const handleLogin = useCallback(async ({ uid, password }) => {
+    const result = await window.electronAPI.login(uid, password)
+    if (result.success) {
+      setAuth({ loggedIn: true, displayName: result.displayName, uid })
+      setPushedByName(result.displayName)
+    }
+    return result
+  }, [])
+
+  const handleLogout = useCallback(async () => {
+    if (!window.electronAPI) return
+    await window.electronAPI.logout()
+    setAuth({ loggedIn: false, displayName: '', uid: '' })
+    setPushedByName('')
+    setView('landing')
+  }, [])
+
   const handleOpenSharedFile = useCallback(async () => {
     if (!window.electronAPI) return
     await window.electronAPI.openSharedFile()
@@ -348,6 +379,31 @@ function App() {
     setView('landing')
   }, [])
 
+  if (authLoading) {
+    return (
+      <div className="app">
+        <header className="app-header">
+          <h1>Quali</h1>
+          <p className="app-subtitle">Lead Review Tool</p>
+        </header>
+        <main className="app-main">
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', color: 'var(--muted)' }}>
+            Loading...
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!auth.loggedIn) {
+    return (
+      <div className="app">
+        <LoginView onLogin={handleLogin} />
+        <ToastContainer />
+      </div>
+    )
+  }
+
   const renderUpdateBanner = () => {
     if (!updateStatus || updateStatus === 'checking' || updateDismissed) return null
     return (
@@ -383,6 +439,12 @@ function App() {
         <header className="app-header">
           <h1>Quali</h1>
           <p className="app-subtitle">Lead Review Tool{appVersion ? ` — v${appVersion}` : ''}</p>
+          {auth.loggedIn && (
+            <div className="header-user">
+              <span className="header-username">{auth.displayName}</span>
+              <button className="btn-logout" onClick={handleLogout}>Logout</button>
+            </div>
+          )}
         </header>
         {renderUpdateBanner()}
         <main className="app-main landing-main">
@@ -486,6 +548,10 @@ function App() {
         <header className="app-header">
           <h1>Quali</h1>
           <p className="app-subtitle">Local Master Excel</p>
+          <div className="header-user">
+            <span className="header-username">{auth.displayName}</span>
+            <button className="btn-logout" onClick={handleLogout}>Logout</button>
+          </div>
         </header>
         {renderUpdateBanner()}
         <main className="app-main master-view">
@@ -623,6 +689,9 @@ function App() {
             <span className="separator">|</span>
             <button className="btn-add-file" onClick={handleAddFile}>+ Add File</button>
             <button className="btn-clear-input" onClick={handleClearInput}>Clear Input</button>
+            <span className="separator">|</span>
+            <span className="header-username">{auth.displayName}</span>
+            <button className="btn-logout" onClick={handleLogout}>Logout</button>
           </div>
         </header>
         {renderUpdateBanner()}

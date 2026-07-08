@@ -111,7 +111,9 @@ class AppState {
     this.columnMapping = {};
     this.localMasterPath = path.join(app.getPath('documents'), 'quali_master.xlsx');
     this.scriptUrl = 'https://script.google.com/macros/s/AKfycbykxuCQoi6WnnTXKdid4Ql6mwET2C68sMKZCvh7frIcGz5Wxe5lW8YR6c7Yo2s1qhPx/exec';
+    this.authScriptUrl = 'https://script.google.com/macros/s/AKfycbyhkpWsu7OoZrYFdAZxJZ74h0HYp0EkzNP21iCID9UHQBGc-Ugchx3m6M60GkTgDv8dtQ/exec';
     this.pushedByName = '';
+    this.authSession = null;
     this.activities = [];
     this.todos = [];
     this.recoveryPath = path.join(app.getPath('userData'), 'recovery.json');
@@ -140,7 +142,9 @@ class AppState {
       if (fs.existsSync(this.configPath)) {
         const cfg = JSON.parse(fs.readFileSync(this.configPath, 'utf-8'));
         this.scriptUrl = cfg.scriptUrl || 'https://script.google.com/macros/s/AKfycbykxuCQoi6WnnTXKdid4Ql6mwET2C68sMKZCvh7frIcGz5Wxe5lW8YR6c7Yo2s1qhPx/exec';
+        this.authScriptUrl = cfg.authScriptUrl || 'https://script.google.com/macros/s/AKfycbyhkpWsu7OoZrYFdAZxJZ74h0HYp0EkzNP21iCID9UHQBGc-Ugchx3m6M60GkTgDv8dtQ/exec';
         this.pushedByName = cfg.pushedByName || '';
+        this.authSession = cfg.authSession || null;
         this.activities = cfg.activities || [];
         this.todos = cfg.todos || [];
       }
@@ -151,7 +155,9 @@ class AppState {
     try {
       fs.writeFileSync(this.configPath, JSON.stringify({
         scriptUrl: this.scriptUrl,
+        authScriptUrl: this.authScriptUrl,
         pushedByName: this.pushedByName || '',
+        authSession: this.authSession || null,
         activities: this.activities || [],
         todos: this.todos || []
       }, null, 2));
@@ -858,6 +864,43 @@ function setupIPC(win) {
     }
     state.reset();
     return { success: true, stats: state.getStats() };
+  });
+
+  ipcMain.handle('auth-login', async (event, { uid, password }) => {
+    try {
+      const resp = await fetch(state.authScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', uid, password })
+      });
+      if (!resp.ok) {
+        return { success: false, error: `Server returned ${resp.status}` };
+      }
+      const data = await resp.json();
+      if (data.success) {
+        state.authSession = { uid, displayName: data.displayName, loggedIn: true };
+        state.pushedByName = data.displayName;
+        state.saveConfig();
+      }
+      return data;
+    } catch (e) {
+      return { success: false, error: 'Network error: ' + e.message };
+    }
+  });
+
+  ipcMain.handle('auth-logout', () => {
+    state.authSession = null;
+    state.pushedByName = '';
+    state.saveConfig();
+    return { success: true };
+  });
+
+  ipcMain.handle('auth-check', () => {
+    if (state.authSession && state.authSession.loggedIn) {
+      state.pushedByName = state.authSession.displayName;
+      return { loggedIn: true, displayName: state.authSession.displayName, uid: state.authSession.uid };
+    }
+    return { loggedIn: false };
   });
 
   ipcMain.handle('open-local-master', () => {

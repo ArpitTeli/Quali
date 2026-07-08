@@ -44,6 +44,9 @@ const electronAPI = {
 
   goHome: () => ipcRenderer.invoke('go-home'),
   clearInput: () => ipcRenderer.invoke('clear-input'),
+  login: (uid, password) => ipcRenderer.invoke('auth-login', { uid, password }),
+  logout: () => ipcRenderer.invoke('auth-logout'),
+  checkAuth: () => ipcRenderer.invoke('auth-check'),
   openLocalMaster: () => ipcRenderer.invoke('open-local-master'),
   openSharedFile: () => ipcRenderer.invoke('open-shared-file'),
 
