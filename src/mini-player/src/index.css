@@ -181,9 +181,14 @@ body {
   gap: 8px;
 }
 
-.btn-back {
-  width: 32px;
-  height: 32px;
+.mini-player-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-nav {
+  width: 28px;
+  height: 28px;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -196,7 +201,7 @@ body {
   transition: all 0.15s;
 }
 
-.btn-back:hover {
+.btn-nav:hover {
   background: #444;
   color: #fff;
 }

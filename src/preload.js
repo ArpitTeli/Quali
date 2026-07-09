@@ -49,6 +49,9 @@ const electronAPI = {
   checkAuth: () => ipcRenderer.invoke('auth-check'),
   openLocalMaster: () => ipcRenderer.invoke('open-local-master'),
   openSharedFile: () => ipcRenderer.invoke('open-shared-file'),
+  browserBack: () => ipcRenderer.invoke('browser-back'),
+  browserForward: () => ipcRenderer.invoke('browser-forward'),
+  browserRefresh: () => ipcRenderer.invoke('browser-refresh'),
 
   masterRead: () => ipcRenderer.invoke('master-read'),
   masterStats: () => ipcRenderer.invoke('master-stats'),

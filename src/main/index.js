@@ -1024,6 +1024,45 @@ function setupIPC(win) {
     return { success: true };
   });
 
+  ipcMain.handle('browser-back', () => {
+    if (u && !u.isDestroyed()) {
+      const views = u.getBrowserViews();
+      if (views.length > 0) {
+        const active = views[views.length - 1];
+        if (active.webContents && !active.webContents.isDestroyed() && active.webContents.canGoBack()) {
+          active.webContents.goBack();
+        }
+      }
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('browser-forward', () => {
+    if (u && !u.isDestroyed()) {
+      const views = u.getBrowserViews();
+      if (views.length > 0) {
+        const active = views[views.length - 1];
+        if (active.webContents && !active.webContents.isDestroyed() && active.webContents.canGoForward()) {
+          active.webContents.goForward();
+        }
+      }
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('browser-refresh', () => {
+    if (u && !u.isDestroyed()) {
+      const views = u.getBrowserViews();
+      if (views.length > 0) {
+        const active = views[views.length - 1];
+        if (active.webContents && !active.webContents.isDestroyed()) {
+          active.webContents.reload();
+        }
+      }
+    }
+    return { success: true };
+  });
+
   ipcMain.handle('master-read', () => {
     try {
       const masterFile = state.localMasterPath;
