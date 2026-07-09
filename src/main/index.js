@@ -1141,6 +1141,17 @@ function setupIPC(win) {
       }
       const hasAny = [name, website, company_phone, email, query].some(v => v && v.trim());
       if (!hasAny) return { success: false, error: 'At least one field is required' };
+
+      // Refresh cloud master data before checking
+      await state.fetchCloudMaster();
+      const checkName = String(name || '').trim().toLowerCase();
+      const checkPhone = state.normalizePhone(company_phone);
+      if (checkName && state.cloudMasterNames.has(checkName)) {
+        return { success: false, error: `"${name}" already exists in cloud master — cannot contact this lead` };
+      }
+      if (checkPhone && state.cloudMasterPhones.has(checkPhone)) {
+        return { success: false, error: `Phone ${company_phone} already exists in cloud master — cannot contact this lead` };
+      }
       const key = `${(name || '').toLowerCase()}|${(website || '').toLowerCase()}`;
       const existing = existingRows.find(r => `${(r.name || '').toLowerCase()}|${(r.website || '').toLowerCase()}` === key);
       if (existing) {
