@@ -2411,3 +2411,123 @@ body {
   color: #ef4444;
   border-color: rgba(239, 68, 68, 0.3);
 }
+
+/* ─── Add Lead Modal ─── */
+.add-lead-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.add-lead-modal {
+  width: 420px;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.add-lead-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--foreground, #e0e0e0);
+  margin: 0 0 4px;
+}
+
+.add-lead-subtitle {
+  font-size: 13px;
+  color: var(--muted-foreground, #666);
+  margin: 0 0 20px;
+}
+
+.add-lead-field {
+  margin-bottom: 14px;
+}
+
+.add-lead-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-foreground, #a1a1a1);
+  margin-bottom: 4px;
+}
+
+.add-lead-field input {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: var(--foreground, #e0e0e0);
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.add-lead-field input:focus {
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.add-lead-field input::placeholder {
+  color: var(--muted-foreground, #555);
+}
+
+.add-lead-error {
+  font-size: 13px;
+  color: #ef4444;
+  margin: 0 0 12px;
+}
+
+.add-lead-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.add-lead-cancel {
+  height: 34px;
+  padding: 0 14px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: var(--muted-foreground, #a1a1a1);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.add-lead-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.add-lead-save {
+  height: 34px;
+  padding: 0 14px;
+  background: #22c55e;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.add-lead-save:hover {
+  background: #16a34a;
+}
+
+.add-lead-save:disabled,
+.add-lead-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

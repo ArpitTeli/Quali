@@ -112,6 +112,9 @@ class AppState {
     this.localMasterPath = path.join(app.getPath('documents'), 'quali_master.xlsx');
     this.scriptUrl = 'https://script.google.com/macros/s/AKfycbykxuCQoi6WnnTXKdid4Ql6mwET2C68sMKZCvh7frIcGz5Wxe5lW8YR6c7Yo2s1qhPx/exec';
     this.authScriptUrl = 'https://script.google.com/macros/s/AKfycbyhkpWsu7OoZrYFdAZxJZ74h0HYp0EkzNP21iCID9UHQBGc-Ugchx3m6M60GkTgDv8dtQ/exec';
+    this.cloudMasterUrl = '';
+    this.cloudMasterNames = new Set();
+    this.cloudMasterPhones = new Set();
     this.pushedByName = '';
     this.authSession = null;
     this.activities = [];
@@ -143,6 +146,7 @@ class AppState {
         const cfg = JSON.parse(fs.readFileSync(this.configPath, 'utf-8'));
         this.scriptUrl = cfg.scriptUrl || 'https://script.google.com/macros/s/AKfycbykxuCQoi6WnnTXKdid4Ql6mwET2C68sMKZCvh7frIcGz5Wxe5lW8YR6c7Yo2s1qhPx/exec';
         this.authScriptUrl = cfg.authScriptUrl || 'https://script.google.com/macros/s/AKfycbyhkpWsu7OoZrYFdAZxJZ74h0HYp0EkzNP21iCID9UHQBGc-Ugchx3m6M60GkTgDv8dtQ/exec';
+        this.cloudMasterUrl = cfg.cloudMasterUrl || '';
         this.pushedByName = cfg.pushedByName || '';
         this.authSession = cfg.authSession || null;
         this.activities = cfg.activities || [];
@@ -156,6 +160,7 @@ class AppState {
       fs.writeFileSync(this.configPath, JSON.stringify({
         scriptUrl: this.scriptUrl,
         authScriptUrl: this.authScriptUrl,
+        cloudMasterUrl: this.cloudMasterUrl,
         pushedByName: this.pushedByName || '',
         authSession: this.authSession || null,
         activities: this.activities || [],
@@ -208,11 +213,52 @@ class AppState {
       }
     }
 
-    this.rows.push(...newRows);
+    const filtered = newRows.filter(row => {
+      const name = String(row.mappedData?.name || '').trim().toLowerCase();
+      const phone = String(row.mappedData?.company_phone || '').trim().replace(/^\+?91/, '');
+      if (name && this.cloudMasterNames.has(name)) return false;
+      if (phone && this.cloudMasterPhones.has(phone)) return false;
+      return true;
+    });
+    const skippedByCloud = newRows.length - filtered.length;
+
+    this.rows.push(...filtered);
     this.totalCount = this.rows.filter(r => r.status !== ROW_STATUS.SKIPPED).length;
     this.processedCount = this.rows.filter(r => r.status === ROW_STATUS.TAGGED).length;
     this.currentBatch = [];
     this.autosave();
+    return { skippedByCloud };
+  }
+
+  async fetchCloudMaster() {
+    if (!this.cloudMasterUrl) return { success: false, error: 'No cloud master URL configured' };
+    try {
+      const resp = await fetch(this.cloudMasterUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getTaggedNames' })
+      });
+      if (!resp.ok) return { success: false, error: `Server returned ${resp.status}` };
+      const data = await resp.json();
+      if (data.success && Array.isArray(data.taggedLeads)) {
+        this.cloudMasterNames = new Set(data.taggedLeads.map(l => String(l.name || '').trim().toLowerCase()));
+        this.cloudMasterPhones = new Set(data.taggedLeads.map(l => String(l.phone || '').trim().replace(/^\+?91/, '')));
+      }
+      return { success: true, count: this.cloudMasterNames.size };
+    } catch (e) {
+      return { success: false, error: 'Network error: ' + e.message };
+    }
+  }
+
+  async syncToCloudMaster(name, phone, taggedBy, tag) {
+    if (!this.cloudMasterUrl) return;
+    try {
+      await fetch(this.cloudMasterUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'addTag', name, phone: String(phone || '').replace(/^\+?91/, ''), taggedBy, tag })
+      });
+    } catch (e) { /* non-critical, ignore */ }
   }
 
   getNextBatch(size) {
@@ -265,6 +311,10 @@ class AppState {
     this.processedCount = this.rows.filter(r => r.status === ROW_STATUS.TAGGED).length;
     this.autosave();
     await this.updateLocalMaster(row, tag);
+    const tagName = row.mappedData?.name || '';
+    const tagPhone = row.mappedData?.company_phone || '';
+    const tagLabel = tag === 'green' ? 'Good' : tag === 'yellow' ? 'Maybe' : tag === 'red' ? 'Bad' : tag;
+    this.syncToCloudMaster(tagName, tagPhone, this.pushedByName, tagLabel);
     return true;
   }
 
@@ -731,9 +781,9 @@ function setupIPC(win) {
       if (!isAdditional) {
         state.reset();
       }
-      state.loadFromExcel(filePath, sheetName, sheet.data, columnMapping);
+      const result = state.loadFromExcel(filePath, sheetName, sheet.data, columnMapping);
       state.updateBatchSize(batchSize);
-      return { success: true, stats: state.getStats() };
+      return { success: true, stats: state.getStats(), skippedByCloud: result?.skippedByCloud || 0 };
     } catch (err) {
       console.error('SETUP_COMPLETE failed:', err);
       return { success: false, error: err.message };
@@ -903,6 +953,20 @@ function setupIPC(win) {
     return { loggedIn: false };
   });
 
+  ipcMain.handle('cloud-master-fetch', async () => {
+    return await state.fetchCloudMaster();
+  });
+
+  ipcMain.handle('cloud-master-set-url', (event, { url }) => {
+    state.cloudMasterUrl = url || '';
+    state.saveConfig();
+    return { success: true };
+  });
+
+  ipcMain.handle('cloud-master-get-url', () => {
+    return { url: state.cloudMasterUrl };
+  });
+
   ipcMain.handle('open-local-master', () => {
     const masterPath = state.localMasterPath;
     if (fs.existsSync(masterPath)) {
@@ -1003,6 +1067,63 @@ function setupIPC(win) {
       const newWb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(newWb, newWs, 'Master Leads');
       fs.writeFileSync(masterFile, XLSX.write(newWb, { bookType: 'xlsx', type: 'buffer' }));
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('master-add-lead', async (event, { name, website, company_phone, email, query }) => {
+    try {
+      const masterFile = state.localMasterPath;
+      let existingRows = [];
+      if (fs.existsSync(masterFile)) {
+        try {
+          const wb = XLSX.readFile(masterFile);
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          existingRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        } catch (e) {
+          await new Promise(r => setTimeout(r, 200));
+          try {
+            const wb = XLSX.readFile(masterFile);
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            existingRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+          } catch (e2) {
+            return { success: false, error: 'Failed to read master file' };
+          }
+        }
+      }
+      const hasAny = [name, website, company_phone, email, query].some(v => v && v.trim());
+      if (!hasAny) return { success: false, error: 'At least one field is required' };
+      const key = `${(name || '').toLowerCase()}|${(website || '').toLowerCase()}`;
+      const existing = existingRows.find(r => `${(r.name || '').toLowerCase()}|${(r.website || '').toLowerCase()}` === key);
+      if (existing) {
+        existing['Lead Status'] = 'Good';
+        if (query) existing['query'] = query;
+        if (company_phone) existing['company_phone'] = company_phone;
+        if (email) existing['email'] = email;
+      } else {
+        existingRows.push({
+          query: query || '',
+          name: name || '',
+          website: website || '',
+          company_phone: company_phone || '',
+          email: email || '',
+          'Lead Status': 'Good',
+          'Comments': ''
+        });
+      }
+      const headers = ['query', 'name', 'website', 'company_phone', 'email', 'Lead Status', 'Comments'];
+      const wsData = [headers, ...existingRows.map(r => headers.map(h => r[h] || ''))];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Master Leads');
+      fs.writeFileSync(masterFile, XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' }));
+      if (!existing) {
+        state.activities.unshift({ type: 'add', title: `Added "${name || 'lead'}" manually`, desc: 'Lead added with Good status', time: new Date().toISOString() });
+        if (state.activities.length > 50) state.activities = state.activities.slice(0, 50);
+        state.saveConfig();
+      }
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };

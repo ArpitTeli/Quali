@@ -8,6 +8,7 @@ import ActivitiesCard from './components/right-panel/ActivitiesCard'
 import TodoList from './components/right-panel/TodoList'
 import MasterCard from './components/right-panel/MasterCard'
 import CompetitionWidget from './components/right-panel/CompetitionWidget'
+import AddLeadModal from './components/AddLeadModal'
 import { FaBell } from 'react-icons/fa'
 import { HiArrowRight } from 'react-icons/hi2'
 import { X, FileText, BarChart3, CheckCircle, AlertCircle, XCircle, Calendar, Globe, Upload, Clock, Users } from 'lucide-react'
@@ -43,6 +44,10 @@ function App() {
   const commentTimerRef = useRef(null)
   const [auth, setAuth] = useState({ loggedIn: false, displayName: '', uid: '' })
   const [authLoading, setAuthLoading] = useState(true)
+  const [showAddLead, setShowAddLead] = useState(false)
+  const [cloudMasterFiltered, setCloudMasterFiltered] = useState(0)
+  const [cloudMasterUrl, setCloudMasterUrl] = useState('')
+  const [cloudMasterUrlInput, setCloudMasterUrlInput] = useState('')
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -52,6 +57,14 @@ function App() {
         if (result.loggedIn) {
           setAuth({ loggedIn: true, displayName: result.displayName, uid: result.uid })
           setPushedByName(result.displayName)
+        }
+      } catch (e) { /* ignore */ }
+      try {
+        const cmResult = await window.electronAPI.getCloudMasterUrl()
+        if (cmResult && cmResult.url) {
+          setCloudMasterUrl(cmResult.url)
+          setCloudMasterUrlInput(cmResult.url)
+          await window.electronAPI.fetchCloudMaster()
         }
       } catch (e) { /* ignore */ }
       setAuthLoading(false)
@@ -214,6 +227,12 @@ function App() {
         addToast('Setup failed: ' + (setupResult.error || 'Unknown error'), 'error')
         return
       }
+      if (setupResult.skippedByCloud > 0) {
+        setCloudMasterFiltered(setupResult.skippedByCloud)
+        addToast(`${setupResult.skippedByCloud} lead(s) skipped — already tagged by others`, 'info')
+      } else {
+        setCloudMasterFiltered(0)
+      }
       const startResult = await window.electronAPI.startBatch()
       if (startResult.success) {
         setView('batch')
@@ -360,6 +379,7 @@ function App() {
     setIsComplete(false)
     setBatchComplete(false)
     setIsAdditional(false)
+    setCloudMasterFiltered(0)
   }, [])
 
   const handleClearInput = useCallback(async () => {
@@ -376,6 +396,7 @@ function App() {
     setIsComplete(false)
     setBatchComplete(false)
     setIsAdditional(false)
+    setCloudMasterFiltered(0)
     setView('landing')
   }, [])
 
@@ -466,6 +487,7 @@ function App() {
                   <div className="mc-btn-row">
                     <button className="mc-btn mc-btn-primary" onClick={handleOpenMasterViewer}>View</button>
                     <button className="mc-btn mc-btn-secondary" onClick={handleOpenLocalMaster}>Open</button>
+                    <button className="mc-btn mc-btn-secondary" onClick={() => setShowAddLead(true)}>Add Lead</button>
                   </div>
                 }
               />
@@ -507,6 +529,7 @@ function App() {
             </div>
           </div>
         </main>
+        {showAddLead && <AddLeadModal onClose={() => { setShowAddLead(false); handleOpenMasterViewer() }} />}
         <ToastContainer />
       </div>
     )
@@ -569,6 +592,7 @@ function App() {
                 placeholder="Your name (for pushed_by)"
               />
               <span className="master-row-count">{masterRows.length} leads</span>
+              <button className="btn btn-primary btn-sm" onClick={() => setShowAddLead(true)}>+ Add Lead</button>
             </div>
           </div>
           <div className="master-script-config">
@@ -585,6 +609,30 @@ function App() {
               </button>
             </div>
             {scriptUrl && <span className="settings-hint">URL configured</span>}
+          </div>
+          <div className="master-script-config">
+            <label>Cloud Master URL (for cross-qualifier dedup)</label>
+            <div className="input-row">
+              <input
+                type="text"
+                value={cloudMasterUrlInput}
+                onChange={(e) => setCloudMasterUrlInput(e.target.value)}
+                placeholder="Paste cloud master Apps Script URL"
+              />
+              <button className="btn btn-primary btn-sm" onClick={async () => {
+                const url = cloudMasterUrlInput.trim()
+                await window.electronAPI.setCloudMasterUrl(url)
+                setCloudMasterUrl(url)
+                if (url) {
+                  const r = await window.electronAPI.fetchCloudMaster()
+                  if (r.success) addToast(`Cloud master loaded — ${r.count} tagged leads`, 'success')
+                  else addToast('Failed to fetch cloud master: ' + (r.error || ''), 'error')
+                }
+              }} disabled={!cloudMasterUrlInput.trim() || cloudMasterUrlInput.trim() === cloudMasterUrl}>
+                Save
+              </button>
+            </div>
+            {cloudMasterUrl && <span className="settings-hint">URL configured</span>}
           </div>
           {masterLoading ? (
             <div className="master-empty">Loading...</div>
@@ -672,6 +720,7 @@ function App() {
             </div>
           </div>
         )}
+        {showAddLead && <AddLeadModal onClose={() => { setShowAddLead(false); handleOpenMasterViewer() }} />}
         <ToastContainer />
       </div>
     )
@@ -686,6 +735,12 @@ function App() {
             <span>{stats.processed} / {stats.total} reviewed</span>
             <span className="separator">|</span>
             <span>{stats.remaining} remaining</span>
+            {cloudMasterFiltered > 0 && (
+              <>
+                <span className="separator">|</span>
+                <span style={{ color: '#a78bfa' }}>{cloudMasterFiltered} filtered (cloud dedup)</span>
+              </>
+            )}
             <span className="separator">|</span>
             <button className="btn-add-file" onClick={handleAddFile}>+ Add File</button>
             <button className="btn-clear-input" onClick={handleClearInput}>Clear Input</button>
