@@ -1165,6 +1165,7 @@ function setupIPC(win) {
         state.activities.unshift({ type: 'add', title: `Added "${name || 'lead'}" manually`, desc: 'Lead added with Good status', time: new Date().toISOString() });
         if (state.activities.length > 50) state.activities = state.activities.slice(0, 50);
         state.saveConfig();
+        state.syncToCloudMaster(name || '', company_phone || '', state.pushedByName || 'manual', 'Good').catch(() => {});
       }
       return { success: true };
     } catch (e) {
