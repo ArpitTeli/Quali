@@ -16,6 +16,7 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
+      - run: npm run build
       - run: npx electron-builder --win --publish never
       - name: Create Release
         uses: softprops/action-gh-release@v2
