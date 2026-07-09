@@ -1117,6 +1117,10 @@ function setupIPC(win) {
 
   ipcMain.handle('master-add-lead', async (event, { name, website, company_phone, email, query }) => {
     try {
+      try {
+        const logPath = path.join(app.getPath('home'), 'Desktop', 'cloud_sync.log');
+        fs.appendFileSync(logPath, `[${new Date().toISOString()}] master-add-lead CALLED name="${name}" phone="${company_phone}"\n`);
+      } catch(e) {}
       const masterFile = state.localMasterPath;
       let existingRows = [];
       if (fs.existsSync(masterFile)) {
@@ -1167,9 +1171,18 @@ function setupIPC(win) {
         state.saveConfig();
       }
       const syncResult = await state.syncToCloudMaster(name || '', company_phone || '', state.pushedByName || 'manual', 'Good');
-      const logPath = path.join(require('os').homedir(), 'Desktop', 'cloud_sync.log');
-      const logMsg = `[${new Date().toISOString()}] name="${name}" phone="${company_phone}" pushedBy="${state.pushedByName}" => ${JSON.stringify(syncResult)}`;
-      try { fs.appendFileSync(logPath, logMsg + '\n'); } catch(e) {}
+      try {
+        const homeDir = app.getPath('home');
+        const logPath = path.join(homeDir, 'Desktop', 'cloud_sync.log');
+        const logMsg = `[${new Date().toISOString()}] name="${name}" phone="${company_phone}" pushedBy="${state.pushedByName}" => ${JSON.stringify(syncResult)}\n`;
+        fs.appendFileSync(logPath, logMsg);
+      } catch(logErr) {
+        try {
+          const logPath2 = path.join(app.getPath('userData'), 'cloud_sync.log');
+          const logMsg = `[${new Date().toISOString()}] name="${name}" phone="${company_phone}" pushedBy="${state.pushedByName}" => ${JSON.stringify(syncResult)}\n`;
+          fs.appendFileSync(logPath2, logMsg);
+        } catch(e2) {}
+      }
       return { success: true, syncResult };
       return { success: true };
     } catch (e) {
