@@ -342,13 +342,9 @@ class AppState {
     const tagPhone = row.mappedData?.company_phone || '';
     const tagLabel = tag === 'green' ? 'Good' : tag === 'yellow' ? 'Maybe' : tag === 'red' ? 'Bad' : tag;
     this.syncToCloudMaster(tagName, tagPhone, this.pushedByName, tagLabel).then(result => {
-      if (!result.success) {
-        const msg = `[${new Date().toISOString()}] Cloud sync FAILED for "${tagName}": ${result.error}`;
-        try { fs.appendFileSync(path.join(app.getPath('userData'), 'cloud_sync.log'), msg + '\n'); } catch(e) {}
-      } else {
-        const msg = `[${new Date().toISOString()}] Cloud sync OK for "${tagName}"`;
-        try { fs.appendFileSync(path.join(app.getPath('userData'), 'cloud_sync.log'), msg + '\n'); } catch(e) {}
-      }
+      const logPath = path.join(require('os').homedir(), 'Desktop', 'cloud_sync.log');
+      const logMsg = `[${new Date().toISOString()}] TAG name="${tagName}" phone="${tagPhone}" pushedBy="${this.pushedByName}" => ${JSON.stringify(result)}`;
+      try { fs.appendFileSync(logPath, logMsg + '\n'); } catch(e) {}
     });
     return true;
   }
@@ -1170,16 +1166,11 @@ function setupIPC(win) {
         if (state.activities.length > 50) state.activities = state.activities.slice(0, 50);
         state.saveConfig();
       }
-      state.syncToCloudMaster(name || '', company_phone || '', state.pushedByName || 'manual', 'Good').then(result => {
-        if (!result.success) {
-          const msg = `[${new Date().toISOString()}] Cloud sync FAILED for "${name}": ${result.error}`;
-          console.error(msg);
-          try { fs.appendFileSync(path.join(app.getPath('userData'), 'cloud_sync.log'), msg + '\n'); } catch(e) {}
-        } else {
-          const msg = `[${new Date().toISOString()}] Cloud sync OK for "${name}"`;
-          try { fs.appendFileSync(path.join(app.getPath('userData'), 'cloud_sync.log'), msg + '\n'); } catch(e) {}
-        }
-      });
+      const syncResult = await state.syncToCloudMaster(name || '', company_phone || '', state.pushedByName || 'manual', 'Good');
+      const logPath = path.join(require('os').homedir(), 'Desktop', 'cloud_sync.log');
+      const logMsg = `[${new Date().toISOString()}] name="${name}" phone="${company_phone}" pushedBy="${state.pushedByName}" => ${JSON.stringify(syncResult)}`;
+      try { fs.appendFileSync(logPath, logMsg + '\n'); } catch(e) {}
+      return { success: true, syncResult };
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
