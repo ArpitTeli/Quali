@@ -1081,7 +1081,8 @@ function setupIPC(win) {
       const data = await resp.json();
       if (data.success) {
         if (!data.masterSheetId) {
-          return { success: false, error: 'Login succeeded but master sheet not created. Please try again.' };
+          console.error('[Auth] Login succeeded but masterSheetId is empty. Response:', JSON.stringify(data));
+          return { success: false, error: 'Login succeeded but master sheet not created. Open the auth Google Sheet, check MasterSheetId column, and redeploy the script with "Execute as: Me".' };
         }
         state.authSession = { uid, displayName: data.displayName, loggedIn: true, masterSheetId: data.masterSheetId };
         state.masterSheetId = data.masterSheetId;
